@@ -1,3 +1,10 @@
+1.20 (June 2019)
+- The code for PowerPoint 2007+ is unchanged (the version number has just
+  been updated).
+- Improved preservation of text properties in PowerPoint 2003- for animation
+  effects applied to text paragraphs. Thanks to Mattia Rocco for point out
+  this problem.
+
 1.19 (March 2018)
 - The enhancement introduced between release 1.17 and 1.18 used an attribute
   that is apparently unsupported by PowerPoint 2007. This release does not

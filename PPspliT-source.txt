@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.19
+'                    |_|                version 1.20
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: March 2018
+' last update: June 2019
 ' Source code for PowerPoint 2007+
 '
 '
