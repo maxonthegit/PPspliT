@@ -12,10 +12,11 @@
 ; Define some variables
 Var /global OFFICE_RELEASE
 Var /global OFFICE_REGKEY
+Var /global OFFICE_ARCH
 Var /global PPSPLIT_RELEASE
 
 Function .onInit
-	StrCpy $PPSPLIT_RELEASE "1.0"
+	StrCpy $PPSPLIT_RELEASE "1.1"
 FunctionEnd
 
 ;--------------------------------
@@ -93,18 +94,34 @@ InstallDir $APPDATA\Microsoft\AddIns\PPspliT
 Function GetOfficeRelease
 	EnumRegKey $OFFICE_REGKEY HKCU Software\Microsoft\Office 0
 	StrCpy $0 $OFFICE_REGKEY -2
-	${If} $0 U<= 11
+	${If} $0 <= 11
 		; Prior to Office 2007
 		StrCpy $OFFICE_RELEASE "11-"
 		DetailPrint "Detected Office release $0 (prior to Office 2007)."
-	${ElseIf} $0 = 12
-		; Office 2007
+	${ElseIf} $0 >= 12
+		; Office 2007 or newer
 		StrCpy $OFFICE_RELEASE "12+"
-		DetailPrint "Detected Office release $0 (Office 2007)."
+		DetailPrint "Detected Office release $0 (Office 2007 or newer)."
 	${Else}
 		MessageBox MB_OK|MB_ICONEXCLAMATION "Could not recognize the installed Office release. Aborting :-("
 		Abort "Installation failed: could not recognize the installed Office version."
 	${EndIf}
+FunctionEnd
+
+;--------------------------------
+
+Function GetOfficeArchitecture
+	StrCmp "$PROGRAMFILES64" "$PROGRAMFILES32" 0 +4
+	DetailPrint "32-bit OS detected. Assuming 32-bit architecture for Office."
+	StrCpy $OFFICE_ARCH "x86"
+	Return
+	
+	StrCpy $0 $OFFICE_REGKEY -2
+	IfFileExists "$PROGRAMFILES64\Microsoft Office\Office$0\powerpnt.exe" +3
+	StrCpy $OFFICE_ARCH "x86"
+	Goto +2
+	StrCpy $OFFICE_ARCH "amd64"
+	DetailPrint "Detected Office architecture: $OFFICE_ARCH"
 FunctionEnd
 
 ;--------------------------------
@@ -131,24 +148,30 @@ Section ""
 	SetOutPath $INSTDIR
 
 	Call GetOfficeRelease
+	Call GetOfficeArchitecture
   
   	IfFileExists $INSTDIR\mouse-button.gif 0 +2
   	DetailPrint "Upgrading existing installation."
   	
+  	File changelog.txt
 	File common_resources\mouse-button.gif
 	File common_resources\ppsplit-button.gif
 	File common_resources\ppsplit.ico
 	${If} $OFFICE_RELEASE == "11-"
 		File PPT11-\*.*
 	${ElseIf} $OFFICE_RELEASE == "12+"
-		File PPT12+\*.*
+		${If} $OFFICE_ARCH == "amd64"
+			File PPT12+\amd64\*.*
+		${Else}
+			File PPT12+\x86\*.*
+		${EndIf}
 	${EndIf}
 	
 	DetailPrint "Registering add-in"
 	${If} $OFFICE_RELEASE == "11-"
 		WriteRegStr HKCU "Software\Microsoft\Office\$OFFICE_REGKEY\PowerPoint\AddIns\PPspliT" "Path" "$INSTDIR\PPspliT.ppa"
 	${ElseIf} $OFFICE_RELEASE == "12+"
-		WriteRegStr HKCU "Software\Microsoft\Office\$OFFICE_REGKEY\PowerPoint\AddIns\PPspliT" "Path" "$INSTDIR\PPspliT.ppam"
+		WriteRegStr HKCU "Software\Microsoft\Office\$OFFICE_REGKEY\PowerPoint\AddIns\PPspliT" "Path" "$INSTDIR\PPspliT-$OFFICE_ARCH.ppam"
 	${EndIf}
 	WriteRegDWORD HKCU "Software\Microsoft\Office\$OFFICE_REGKEY\PowerPoint\AddIns\PPspliT" "AutoLoad" 1
 

@@ -1,3 +1,12 @@
+1.1 (Dec 2010)
+- Worked around a PowerPoint bug affecting handling of effects with
+  the "hide on next mouse click" option activated.
+- Fixed a bug in the update of the progress bar which caused a crash
+  when handling effects with the "hide on next mouse click" option
+  activated.
+- Support for Office 2010, both 32 and 64 bit versions. Installer
+  automatically recognizes the correct architecture.
+- Slightly improved button icon for Office XP (2002) and 2003.
+
 1.0 (Nov 2009)
 - First release
-

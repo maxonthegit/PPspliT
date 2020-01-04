@@ -7,9 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.0
+'                    |_|                version 1.1
 '
-' written by Massimo Rimondini in November 2009
+' first written by Massimo Rimondini in November 2009
+' last update: December 2010
 '
 '
 '
@@ -1051,12 +1052,16 @@ End Function
 '
 ' This subroutine applies to slide s a generic animation effect that is
 ' on top of the timeline of seq_slide. At the same time, it also removes
-' the effect from the timeline of seq_slide.
+' the effect from the timeline of seq_slide. Returns 0 if behaving normally.
+' Returns 1 in the exceptional case when an animation effect is added by
+' the function itself.
 '
-Private Sub applyEffect(s As Slide, seq_slide As Slide)
+Private Function applyEffect(s As Slide, seq_slide As Slide)
     Dim current_effect As Effect, sh As Shape
     Set current_effect = seq_slide.TimeLine.MainSequence(1)
     Set sh = current_effect.Shape
+    ' By default the applyEffect function only consumes effects, does not add them
+    applyEffect = 0
     If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHide Then
         ' This effect is set for hiding the shape after the animation, so it
         ' must be treated equivalently to an exit effect: simply delete the shape
@@ -1072,7 +1077,13 @@ Private Sub applyEffect(s As Slide, seq_slide As Slide)
             Set tl = seq_slide.TimeLine.MainSequence
             For I = 2 To tl.Count
                 If tl(I).Timing.TriggerType = msoAnimTriggerOnPageClick Then
-                    tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious, I + 1
+                    tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious
+                    ' Best thing would be to insert the exit effect right after the next click-triggered
+                    ' effect, but this is not possible, guess why, due to a PowerPoint bug which causes
+                    ' the Index argument of AddEffect to be handled unpredictably. So, we need to work this
+                    ' around by inserting the effect at the end of the sequence and, only afterwards,
+                    ' move it to the right location.
+                    tl(tl.Count).MoveTo I + 1
                     tl(I + 1).Exit = msoTrue
                     found = True
                     Exit For
@@ -1082,6 +1093,10 @@ Private Sub applyEffect(s As Slide, seq_slide As Slide)
                 tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerOnPageClick, I
                 tl(I).Exit = msoTrue
             End If
+            ' This is the only case when the applyEffect function adds an animation effect to the
+            ' sequence: here we notify the calling routine about the fact that the animation sequence
+            ' has lengthened.
+            applyEffect = 1
         End If
         If current_effect.Timing.RewindAtEnd Then
             ' A rewound-after-the-end animation has no effect (unless it is set for
@@ -1174,7 +1189,7 @@ Private Sub applyEffect(s As Slide, seq_slide As Slide)
             End If
         End If
     End If
-End Sub
+End Function
 
 '
 ' This subroutine removes all the animation effects from a slide. Useful
@@ -1312,9 +1327,6 @@ Sub PPspliT_main()
                 purgeEffects ActivePresentation.Slides(slide_number)
                 alreadyPurged = True
                 
-'                For i = 1 To ActivePresentation.Slides(slide_number).TimeLine.MainSequence.Count
-'                    ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Delete
-'                Next i
             End If
             ActivePresentation.Slides(slide_number).Duplicate
             slide_number = slide_number + 1
@@ -1323,8 +1335,9 @@ Sub PPspliT_main()
                 ' Now iterate over all non-mouse-triggered effects starting with the current one
                 cont = True
                 While cont
-                    ' The applyEffect method eats an animation effect for each call
-                    applyEffect ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
+                    ' The applyEffect method eats an animation effect for each call,
+                    ' unless it returns 1.
+                    addedEffects = applyEffect(ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1))
                     
                     '
                     ' Ok, the current effect has been processed. Keep staying on the same slide
@@ -1340,7 +1353,7 @@ Sub PPspliT_main()
                         cont = (slide_timeline(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
                                 Or slide_timeline(1).Timing.TriggerType = msoAnimTriggerAfterPrevious) And splitMouseTriggered
                     End If
-                    processed_anims = processed_anims + 1
+                    processed_anims = processed_anims + 1 - addedEffects
                     anims_percentage = Int(processed_anims / tot_anims * 100)
                     
                     ProgressForm.SlideLabel = Str$(anims_percentage) + " %"
