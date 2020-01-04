@@ -1,3 +1,16 @@
+1.16 (February 2017)
+- Two main improvements:
+  1) A dialog box is now displayed when a range of slides is currently
+     selected, to confirm the user's intention to only split slides in
+     that range.
+  2) Improved rendering of text paragraph entry effects.
+     After some testing, certain statements aimed at preserving line spacing
+     in the processed text frames proved to be more detrimental than useful,
+     therefore they have been commented out.
+     This change applies only to PowerPoint 2007 and later.
+     Thanks to Stefan Fedl for providing me with a useful test case to
+     investigate this issue.
+
 1.15 (June 2016)
 - No "real" changes. Just relaxed some warnings in the installer about
   PowerPoint 2016 being unsupported (which was incorrect).
@@ -69,8 +82,7 @@
   button group separator).
 - Removed a misplaced comment about the unsupported features in the
   source code for PowerPoint 2007.
-- The progress bar documenting the advancement of the slide number
-adjustment
+- The progress bar documenting the advancement of the slide number adjustment
   missed the percentage value in PowerPoint 2007.
 
 

@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.15
+'                    |_|                version 1.16
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: June 2016
+' last update: February 2017
 ' Source code for PowerPoint 2007+
 '
 '
@@ -285,11 +285,14 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     ' Apply contents and formatting from the original paragraph
     p2.Copy
     
-    ' It seems that the following 3 assignments, applied *before* pasting
+    ' It seems that the following 6 assignments, applied *before* pasting
     ' the paragraph, reduce the number of cases in which bullet symbols
     ' are lost. The reason why this happens is completely obscure to me, but
     ' repeating the assignment *after* pasting (where this should happen)
     ' seems to be harmless.
+    p1.ParagraphFormat.LineRuleAfter = p2.ParagraphFormat.LineRuleAfter
+    p1.ParagraphFormat.LineRuleBefore = p2.ParagraphFormat.LineRuleBefore
+    p1.ParagraphFormat.LineRuleWithin = p2.ParagraphFormat.LineRuleWithin
     p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
     p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
     p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
@@ -297,9 +300,15 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     p1.Paste
     
     p1.IndentLevel = p2.IndentLevel
-    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
-    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
-    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
+    ' Apparently, restoring line spacing here, where it should be more
+    ' appropriate, messes up formatting in most of the cases. Therefore,
+    ' the following 6 assignments have been commented out.
+'    p1.ParagraphFormat.LineRuleAfter = p2.ParagraphFormat.LineRuleAfter
+'    p1.ParagraphFormat.LineRuleBefore = p2.ParagraphFormat.LineRuleBefore
+'    p1.ParagraphFormat.LineRuleWithin = p2.ParagraphFormat.LineRuleWithin
+'    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
+'    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
+'    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
     
     ' Restore bullet formatting. Since there seems to be no
     ' way to get the currently used image for a bullet, care
@@ -1922,14 +1931,7 @@ Sub PPspliT_main()
 
     Dim slide_timeline As Sequence
     cancelStatus = False
-    ProgressForm.SlideBar.Width = 0
-    ProgressForm.OverallBar.Width = 0
-    ProgressForm.Show
-    
-    If ActiveWindow.ViewType <> ppViewSlide And ActiveWindow.ViewType <> ppViewNormal Then
-        ActiveWindow.ViewType = ppViewNormal
-    End If
-    
+
     ' Non-contiguous ranges of slides are NOT supported: they are assumed to
     ' start at the lowest numbered selected slide and end at the highest numbered
     ' selected slide.
@@ -1942,11 +1944,31 @@ Sub PPspliT_main()
         Next s
         slide_number = min_slide_index
         tot_slides = max_slide_index
+        split_selected_slides = MsgBox(prompt:="It seems that a set of slides is currently selected. " + _
+             "By proceeding, you will only be splitting slides in the range" + Str$(min_slide_index) + "-" + Right$(Str$(max_slide_index), Len(Str$(max_slide_index)) - 1) + "." + Chr$(13) + _
+             "(non-contiguous sets of slides are not supported, therefore all the slides between the first and last selected ones will be affected by the split process)." + Chr$(13) + _
+             "Click " + Chr$(34) + "Yes" + Chr$(34) + " if this is what you want." + Chr$(13) + _
+             "Click " + Chr$(34) + "No" + Chr$(34) + " if you want to split ALL the slides in the presentation instead." + Chr$(13) + _
+             "Click " + Chr$(34) + "Cancel" + Chr$(34) + " to simply cancel the operation.", buttons:=vbYesNoCancel, Title:="PPspliT - Information request")
+        If split_selected_slides = vbNo Then
+            slide_number = 1
+            tot_slides = ActivePresentation.Slides.Count
+        ElseIf split_selected_slides = vbCancel Then
+            Exit Sub
+        End If
     Else
         slide_number = 1
         tot_slides = ActivePresentation.Slides.Count
     End If
+
+    ProgressForm.SlideBar.Width = 0
+    ProgressForm.OverallBar.Width = 0
+    ProgressForm.Show
     
+    If ActiveWindow.ViewType <> ppViewSlide And ActiveWindow.ViewType <> ppViewNormal Then
+        ActiveWindow.ViewType = ppViewNormal
+    End If
+        
     ' Bake slide numbers (and other footers that may contain slide numbers) into the
     ' presentation, if requested.
     If Not doNotAdjustSlideNumbers Then bakeSlideNumbers slide_number, tot_slides, maxProgressWidth
