@@ -1,11 +1,16 @@
 This package contains a PowerPoint add-in that splits animation effects into different slides.
 
-The add-in is the result of the entertaining time of a VBA enthusiast, not a professional developer.
-As such, no warranty of any kind is provided on the operation of the add-in, including, but not limited to, damage to your presentations or to your system.
-
-Several tests have been performed before releasing this tool and installation, usage, and removal have proven harmless on my setup, but you should be aware that no such guarantee applies to your system.
+The add-in is the result of the entertaining time of a VBA enthusiast, not a professional developer. Although I perform several tests before releasing new versions and use the add-in myself, I cannot give warranties of any kind that it will operate as expected and will not cause damage to your presentations or even to your system.
+I'm not saying this to frighten you, but rather to reassure me :-)
 
 You are free to use this add-in in whatever context you like to, and redistribution is also encouraged.
-If you like, drop me a line so that I can collect some feedback on the current utilization of the tool.
+If you like, drop me a line so that I can collect some feedback on its usage: I am very happy to be acquainted with your experiences. And, yes, should you need help you can try to ask me of course: I always do my best to answer your requests but, honestly, I do not have enough resources (time, typically) to provide you with a real "technical support".
 
 http://www.dia.uniroma3.it/~rimondin/
+
+Many of the feedbacks I have already received are (fortunately) positive. Somebody even felt so grateful that he sought for more effective ways of expressing his gratitude. I repeat: a message from yours is more than enough.
+But, if you really eager for a more concrete way of saying "thank you" and are happy with the awareness that this will not push development nor grant you any additional technical support, well... here is my Paypal account for sending a donation:
+
+maxonthenet@tiscali.it
+
+A doubled thank you to those who will choose to go this way!

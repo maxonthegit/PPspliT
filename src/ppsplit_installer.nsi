@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.6"
+	StrCpy $PPSPLIT_RELEASE "1.7"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -223,7 +223,9 @@ Section ""
   	DetailPrint "Upgrading existing installation."
   	
   	File changelog.txt
+	File common_resources\about-button.gif
 	File common_resources\mouse-button.gif
+	File common_resources\slide-numbers.gif
 	File common_resources\ppsplit-button.gif
 	File common_resources\ppsplit.ico
 	File PPT11-\*.*

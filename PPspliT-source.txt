@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.6
+'                    |_|                version 1.7
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: September 2012
+' last update: January 2013
 '
 '
 '
@@ -70,10 +70,16 @@
 ' - Supports rewound-after-the-end and auto-reverse effects, reversed motion
 ' paths, and hide-on-next-click effects.
 '
+' - Keeps slide numbers consistent: if a slide number is displayed in the slide footer,
+' the same number will be displayed for all the slides that result from the split of a
+' single original slide, as one would expect.
+'
 '
 '
 ' DOES NOT, and probably will never SUPPORT:
 '
+' - Simultaneous path and resize effects (it seems that path coordinates are
+' scaled too).
 ' - Shape dimming after playing an effect.
 '
 ' - Effects triggered by mouse clicks on a specific shape.
@@ -156,6 +162,11 @@
 
 
 
+' This global variable indicates whether slide numbers should be kept consistent with
+' the original set of slides. For example, if slide 6 is split into 3 slides, then
+' all those 3 slides will be numbered 6.
+Public adjustSlideNumbers As Boolean
+
 ' This global variable indicates whether animations should be split
 ' at each mouse-triggered event. If set to false, a separate slide is
 ' created for each and every animation.
@@ -185,23 +196,23 @@ Private Sub clearParagraph(sh As Shape, par)
         ' have a different width than original characters, can therefore
         ' mess up word wrapping, hence the number of lines of this paragraph,
         ' hence the rendering of any following paragraphs.
-        For I = 2 To sh.TextFrame.TextRange.Paragraphs(par).Lines.Count
-            If Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters.Count)) <> 11 _
-                And Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters.Count)) <> 13 Then
-                sh.TextFrame.TextRange.Paragraphs(par).Lines(I).Characters(1).InsertBefore Chr$(11)
+        For i = 2 To sh.TextFrame.TextRange.Paragraphs(par).Lines.Count
+            If Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(i - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(i - 1).Characters.Count)) <> 11 _
+                And Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(i - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(i - 1).Characters.Count)) <> 13 Then
+                sh.TextFrame.TextRange.Paragraphs(par).Lines(i).Characters(1).InsertBefore Chr$(11)
             End If
-        Next I
+        Next i
     End If
     Set p = sh.TextFrame.TextRange.Paragraphs(par)
-    I = 1
-    While I <= p.Characters.Count
+    i = 1
+    While i <= p.Characters.Count
         ' Replace paragraph contents with spaces. This is the best and
         ' most compatible way I found to "hide" a paragraph while keeping
         ' its original space occupied.
-        If Asc(p.Characters(I)) <> 13 And Asc(p.Characters(I)) <> 11 Then
-            p.Characters(I) = " "
+        If Asc(p.Characters(i)) <> 13 And Asc(p.Characters(i)) <> 11 Then
+            p.Characters(i) = " "
         End If
-        I = I + 1
+        i = i + 1
     Wend
     ' Set bullet symbol too to " " (160 is the Unicode value)
     p.ParagraphFormat.Bullet.Character = 160
@@ -248,10 +259,10 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     ' here I may still be adding new text (e.g., new spaces), to
     ' which formatting must be applied. This is the reason of the
     ' call to copyFontAttributes.
-    For I = 1 To p2.Characters.Count
-        p1.Characters(I) = p2.Characters(I)
-        copyFontAttributes p1.Characters(I).Font, p2.Characters(I).Font
-    Next I
+    For i = 1 To p2.Characters.Count
+        p1.Characters(i) = p2.Characters(i)
+        copyFontAttributes p1.Characters(i).Font, p2.Characters(i).Font
+    Next i
 End Sub
 
 '
@@ -280,7 +291,7 @@ Private Sub matchZOrder(s1 As Slide, s2 As Slide)
     ProgressForm.Repaint
     zThreshold = 0
     j = 1
-    For I = 1 To s2.Shapes.Count
+    For i = 1 To s2.Shapes.Count
         minZ = 65536
         ' Find shape in s2 with minimum ZOrder greater than zThreshold
         For Each sh2 In s2.Shapes
@@ -298,12 +309,12 @@ Private Sub matchZOrder(s1 As Slide, s2 As Slide)
             Set sortedShapes(j) = s1.Shapes(shapeIdInS1)
             j = j + 1
         End If
-    Next I
+    Next i
     
     ' Bring to front shapes in s1 by increasing values of ZOrder
-    For I = 1 To j - 1
-        sortedShapes(I).ZOrder msoBringToFront
-    Next I
+    For i = 1 To j - 1
+        sortedShapes(i).ZOrder msoBringToFront
+    Next i
     ProgressForm.infoLabel = ""
     ProgressForm.Repaint
 End Sub
@@ -529,9 +540,9 @@ Private Sub shiftAllMotions(effectSequence As Sequence, sh As Shape, shiftX, shi
                 lastY = lastY + shiftY
                 motionPathString$ = motionPathString$ + Trim(Str$(lastX)) + " " + Trim(Str$(lastY)) + " "
                 ' Append the rest of the motion string
-                For I = 3 To UBound(motionPathTokens)
-                    motionPathString$ = motionPathString$ + motionPathTokens(I) + " "
-                Next I
+                For i = 3 To UBound(motionPathTokens)
+                    motionPathString$ = motionPathString$ + motionPathTokens(i) + " "
+                Next i
             Else
                 ' Update the last two (i.e., arrival) coordinates
                 getLastCoordinates currentEffect.Behaviors(1).MotionEffect.Path, lastX, lastY, lastToken
@@ -539,9 +550,9 @@ Private Sub shiftAllMotions(effectSequence As Sequence, sh As Shape, shiftX, shi
                 lastY = lastY + shiftY
                 ' Copy everything but the last two coordinates from the original
                 ' motion string
-                For I = 0 To lastToken
-                    motionPathString$ = motionPathString$ + motionPathTokens(I) + " "
-                Next I
+                For i = 0 To lastToken
+                    motionPathString$ = motionPathString$ + motionPathTokens(i) + " "
+                Next i
                 ' Append the modified coordinates
                 motionPathString$ = motionPathString$ + Trim(Str$(lastX)) + " " + Trim(Str$(lastY)) + " "
             End If
@@ -621,7 +632,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ' shape, then the effect must first be applied to the container shape,
     ' in order to avoid unpredictable automatic resizing.
     If e.EffectType = msoAnimEffectGrowShrink Then
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             ' I am not scaling a bitmap here, therefore I need to
             ' recompute map X and Y scaling in accordance with the shape
             ' rotation.
@@ -700,8 +711,8 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectChangeFillColor Then
         If sh.Fill.Transparency < 1 Then
             sh.Fill.Solid
-            assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
         End If
+        assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
     ElseIf e.EffectType = msoAnimEffectChangeFontStyle Then
         ' Font effects may be applied to a group. In that case,
         ' at least for versions of PowerPoint prior to 2007, we
@@ -737,7 +748,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectTransparency Then
         ' Potentially bad consequence: objects that are made totally
         ' transparent cannot have their transparency changed
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Line.Transparency < 1 Then
                 sh.Line.Transparency = e.EffectParameters.amount
             End If
@@ -810,6 +821,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
             End If
         Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectChangeLineColor Then
+        If Not sh.Line.Visible Then sh.Line.Visible = msoTrue
         assignColor sh.Line.ForeColor, e.EffectParameters.Color2
     ElseIf e.EffectType = msoAnimEffectChangeFontSize Then
         ' Font effects may be applied to a group. In that case,
@@ -847,7 +859,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
         ' Rotating just the text is not supported
         sh.Rotation = sh.Rotation + e.Behaviors(1).RotationEffect.By
     ElseIf e.EffectType = msoAnimEffectDesaturate Then
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 With sh.Fill.ForeColor
                     colToRGB .RGB, r, g, b
@@ -899,7 +911,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
         Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectColorWave Or e.EffectType = msoAnimEffectColorBlend Or _
             e.EffectType = msoAnimEffectBrushOnColor Or e.EffectType = msoAnimEffectTeeter Then
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
             End If
@@ -936,7 +948,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectComplementaryColor2 Then
         ' PowerPoint computes the complementary color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 180
             End If
@@ -989,7 +1001,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
             End If
         Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectLighten Then
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 changeLightness sh.Fill.ForeColor, 0.3
             End If
@@ -1059,7 +1071,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectComplementaryColor Then
         ' PowerPoint computes the complementary color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 120
             End If
@@ -1070,7 +1082,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectContrastingColor Then
         ' PowerPoint computes the contrasting color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 90
             End If
@@ -1083,7 +1095,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectFlashBulb Then
         ' msoAnimEffectFlashBulb is a non-permanent effect
     ElseIf e.EffectType = msoAnimEffectDarken Then
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
+        If e.Shape.Type = msoPlaceholder Or e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 changeLightness sh.Fill.ForeColor, -0.3
             End If
@@ -1471,29 +1483,29 @@ Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
     Set slide_timeline = s.TimeLine.MainSequence
     ProgressForm.infoLabel = "Preprocessing slide effects..."
     ProgressForm.Repaint
-    I = 1: start_deleting_at = 0
-    While I <= slide_timeline.Count And start_deleting_at = 0
-        If slide_timeline(I).Timing.TriggerType <> msoAnimTriggerAfterPrevious And _
-           slide_timeline(I).Timing.TriggerType <> msoAnimTriggerWithPrevious Then
+    i = 1: start_deleting_at = 0
+    While i <= slide_timeline.Count And start_deleting_at = 0
+        If slide_timeline(i).Timing.TriggerType <> msoAnimTriggerAfterPrevious And _
+           slide_timeline(i).Timing.TriggerType <> msoAnimTriggerWithPrevious Then
             ' Start deleting shapes from the next mouse-triggered event.
             ' Any preceding shapes will be deleted when their effects
             ' are individually considered
-            start_deleting_at = I
+            start_deleting_at = i
         End If
-        I = I + 1
+        i = i + 1
     Wend
     If start_deleting_at > 0 Then
-        For I = start_deleting_at To s.TimeLine.MainSequence.Count
-            If I > s.TimeLine.MainSequence.Count Then Exit For
+        For i = start_deleting_at To s.TimeLine.MainSequence.Count
+            If i > s.TimeLine.MainSequence.Count Then Exit For
             delete_shape_idx = -1
-            If Not slide_timeline(I).Exit And Not isEmphasisEffect(slide_timeline(I)) Then
+            If Not slide_timeline(i).Exit And Not isEmphasisEffect(slide_timeline(i)) Then
                 ' This is an entry effect applied in the future. Likely a candidate
                 ' to justify shape deletion
-                delete_shape_idx = I
+                delete_shape_idx = i
             End If
-            parI = getEffectParagraph(slide_timeline(I))
-            For j = I - 1 To start_deleting_at Step -1
-                If slide_timeline(I).Shape Is slide_timeline(j).Shape And _
+            parI = getEffectParagraph(slide_timeline(i))
+            For j = i - 1 To start_deleting_at Step -1
+                If slide_timeline(i).Shape Is slide_timeline(j).Shape And _
                     (slide_timeline(j).Exit Or isEmphasisEffect(slide_timeline(j))) Then
                     ' Probably we need to abort deletion: there may
                     ' be an exit/emphasis effect for the same shape before the entry effect.
@@ -1518,12 +1530,12 @@ Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
                 ' Restrict deletion to text paragraphs only if instructed to
                 ' do so.
                 If parI > 0 Or Not textParagraphEffectsOnly Then
-                    If deleteShape(slide_timeline(I).Shape, slide_timeline, delete_shape_idx) Then
-                        I = I - 1
+                    If deleteShape(slide_timeline(i).Shape, slide_timeline, delete_shape_idx) Then
+                        i = i - 1
                     End If
                 End If
             End If
-        Next I
+        Next i
     End If
     ProgressForm.infoLabel = ""
     ProgressForm.Repaint
@@ -1538,14 +1550,14 @@ End Sub
 '
 Private Function findShape(s As Slide, id)
     Dim currentShape As Shape
-    I = 1
+    i = 1
     findShape = 0
     For Each currentShape In s.Shapes
         If currentShape.AlternativeText = id Then
-            findShape = I
+            findShape = i
             Exit Function
         End If
-        I = I + 1
+        i = i + 1
     Next currentShape
 End Function
 
@@ -1575,23 +1587,23 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
             ' insert a new exit animation that will be processed in the following
             found = False
             Set tl = seq_slide.TimeLine.MainSequence
-            For I = 2 To tl.Count
-                If tl(I).Timing.TriggerType = msoAnimTriggerOnPageClick Then
+            For i = 2 To tl.Count
+                If tl(i).Timing.TriggerType = msoAnimTriggerOnPageClick Then
                     tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious
                     ' Best thing would be to insert the exit effect right after the next click-triggered
                     ' effect, but this is not possible, guess why, due to a PowerPoint bug which causes
                     ' the Index argument of AddEffect to be handled unpredictably. So, we need to work this
                     ' around by inserting the effect at the end of the sequence and, only afterwards,
                     ' move it to the right location.
-                    tl(tl.Count).MoveTo I + 1
-                    tl(I + 1).Exit = msoTrue
+                    tl(tl.Count).MoveTo i + 1
+                    tl(i + 1).Exit = msoTrue
                     found = True
                     Exit For
                 End If
-            Next I
+            Next i
             If Not found Then
-                tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerOnPageClick, I
-                tl(I).Exit = msoTrue
+                tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerOnPageClick, i
+                tl(i).Exit = msoTrue
             End If
             ' This is the only case when the applyEffect function adds an animation effect to the
             ' sequence: here we notify the calling routine about the fact that the animation sequence
@@ -1719,9 +1731,9 @@ End Function
 ' to leave slides clean after processing
 '
 Private Sub purgeEffects(s As Slide)
-    For I = 1 To s.TimeLine.MainSequence.Count
+    For i = 1 To s.TimeLine.MainSequence.Count
         s.TimeLine.MainSequence(1).Delete
-    Next I
+    Next i
     s.SlideShowTransition.EntryEffect = ppEffectAppear
 End Sub
 
@@ -1737,6 +1749,42 @@ Private Sub copyShapeIds(s As Slide)
         sh.AlternativeText = Str$(sh.id)
     Next sh
 End Sub
+
+'
+' This function moves elements from slide masters to slides, in order to keep slide
+' numbers fixed during the split. Note that slide numbers may occur in several shapes
+' in a slide master, not just the "slide number" footer.
+'
+Private Sub bakeSlideNumbers(start_index, end_index, maxProgressWidth)
+    Dim sh As Shape
+
+    ProgressForm.infoLabel = "Adjusting slide numbers. This may take some time..."
+    
+    ' Placeholders from slide masters (even custom layouts) appear as standard shapes in the
+    ' slides. Therefore, here we search for placeholder shapes in each slide and, when found,
+    ' we simply reassign the text to the shape, in order to turn any special <pagenumber>
+    ' field into plain text
+    For i = start_index To end_index
+        ProgressForm.SlideBar.Width = (i - start_index + 1) / (end_index - start_index + 1) * maxProgressWidth
+        ProgressForm.Repaint
+        For Each sh In ActivePresentation.Slides(i).Shapes
+            If sh.Type = msoPlaceholder Then
+                With sh.PlaceholderFormat
+                    If .Type = ppPlaceholderSlideNumber Or _
+                       .Type = ppPlaceholderDate Or _
+                       .Type = ppPlaceholderFooter Then
+                       ' Text is baked character by character, in order to avoid losing formatting
+                       For c = 1 To sh.TextFrame.TextRange.Characters.Count
+                            sh.TextFrame.TextRange.Characters(c) = sh.TextFrame.TextRange.Characters(c)
+                       Next c
+                    End If
+                End With
+            End If
+        Next sh
+    Next i
+    
+End Sub
+
 
 Sub PPspliT_main()
     On Error GoTo error_handler
@@ -1768,6 +1816,10 @@ Sub PPspliT_main()
         slide_number = 1
         tot_slides = ActivePresentation.Slides.Count
     End If
+    
+    ' Bake slide numbers (and other footers that may contain slide numbers) into the
+    ' presentation, if requested.
+    If adjustSlideNumbers Then bakeSlideNumbers slide_number, tot_slides, maxProgressWidth
     
     ' Since lots of duplicate slides will be created in the process, I must
     ' keep note of:
@@ -1938,6 +1990,19 @@ error_handler:
     End If
 End Sub
 
+' The "Adjust slide numbers" check box
+' has been clicked
+Sub ASNcBoxChanged(button As Iribboncontrol, pressed As Boolean)
+    adjustSlideNumbers = pressed
+End Sub
+
+' The "Adjust slide numbers" check box
+' is checked by default
+Sub ASNcBoxDefault(button As Iribboncontrol, ByRef state)
+    state = True
+    adjustSlideNumbers = True
+End Sub
+
 ' The "Split on click-triggered animations" check box
 ' has been clicked
 Sub CTcBoxChanged(button As Iribboncontrol, pressed As Boolean)
@@ -1951,3 +2016,7 @@ Sub CTcBoxDefault(button As Iribboncontrol, ByRef state)
     splitMouseTriggered = True
 End Sub
 
+' Display the about dialog
+Sub displayAboutForm()
+    AboutForm.Show
+End Sub

@@ -1,3 +1,17 @@
+1.7 (Jan 2013)
+- If slide numbers are displayed in slide footers, it is now possible to
+  keep them consistent with those appearing in the original presentation:
+  if splitting a single slide from the original presentation results in
+  several slides, the same slide number is displayed for all of them.
+- When applying an animation effect to a placeholder for the first time,
+  the "animate background shape" option is disabled but implicitly
+  activated. Relevant effects now take this into account and implicitly
+  assume that the whole shape is to be animated when it is a placeholder.
+- The ChangeLineColor emphasis effect did not apply correctly if the
+  shape had no line shown. Same for the ChangeFillColor effect. Fixed.
+- Improved Office XP/2003 toolbar.
+- Added an about dialog box.
+
 1.6 (Sep 2012)
 - Removed the progress bar from the progress form. This solves problems
   with missing Microsoft Form controls and relaxes architecture
