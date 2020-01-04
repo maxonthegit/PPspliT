@@ -1,3 +1,13 @@
+1.14 (August 2015)
+- Improved handling of animations of text paragraphs.
+  In particular, copying paragraphs between shapes sometimes required
+  inserting an additional newline character at the paragraph end, which was
+  never later removed. Although generally harmless, this caused text
+  alignment to be garbled in some cases, especially when text was
+  vertically aligned at bottom. Now injected newline characters are
+  automatically removed after processing the relevant paragraphs (thanks to
+  John Rowe for isolating the issue in a minimal example).
+
 1.13 (February 2015)
 - Improved processing of bullet formatting in itemized lists. Still far
   from being perfect, but a richer number of cases should now be correctly
@@ -55,7 +65,8 @@
   button group separator).
 - Removed a misplaced comment about the unsupported features in the
   source code for PowerPoint 2007.
-- The progress bar documenting the advancement of the slide number adjustment
+- The progress bar documenting the advancement of the slide number
+adjustment
   missed the percentage value in PowerPoint 2007.
 
 
@@ -102,13 +113,16 @@
   shapes. This should solve issues such as lost text styles (bold, italic,
   underline, etc.) and early appearing paragraphs in the split slides.
 - Fixed a small bug which caused incorrect handling of rotation emphasis
-  effects. The bug affected shapes that were already rotated before applying
+  effects. The bug affected shapes that were already rotated before
+  applying
   the effect.
 - Improved handling of shape resize emphasis effects in Office <=2003: now
   the font size is more likely to be correctly updated even when the effect
   operates on a group of shapes. Note that: 1) font size for text boxes
-  in nested groups will still not be updated, and 2) sometimes the font size
-  may be scaled incorrectly (guess why? Because PowerPoint returns a garbled
+  in nested groups will still not be updated, and 2) sometimes the font
+  size
+  may be scaled incorrectly (guess why? Because PowerPoint returns a
+  garbled
   size for existing text).
 - Improved handling of entry effects for shapes that have an entry effect
   on their own + an entry effect for each text paragraph they have inside.
@@ -134,3 +148,4 @@
 
 1.0 (Nov 2009)
 - First release
+
