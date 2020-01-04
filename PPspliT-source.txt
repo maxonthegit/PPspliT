@@ -7,7 +7,7 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.4
+'                    |_|                version 1.5
 '
 ' first written by Massimo Rimondini in November 2009
 ' last update: January 2012
@@ -96,7 +96,7 @@
 ' also be experienced with a manual copy&paste operation.
 '
 ' - Accurate proportions in font scaling for grow/shrinking emphasis effects.
-' This would only be possible by working with a rasterized version of the affected.
+' This would only be possible by working with a rasterized version of the affected shapes.
 ' The best I can do for now is to apply a proportional font scaling (i.e., a
 ' bare modification of the font size) that is a good compromise between the horizontal
 ' and the vertical growth/shrink.
@@ -1461,7 +1461,7 @@ End Function
 ' effect in the sequence is an entry effect. This is reasonable,
 ' because those shapes are expected to appear later on.
 '
-Private Sub purgeFutureShapes(s As Slide)
+Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
     Dim slide_timeline As Sequence
     Set slide_timeline = s.TimeLine.MainSequence
     ProgressForm.infoLabel = "Preprocessing slide effects..."
@@ -1486,6 +1486,7 @@ Private Sub purgeFutureShapes(s As Slide)
                 ' to justify shape deletion
                 delete_shape_idx = I
             End If
+            parI = getEffectParagraph(slide_timeline(I))
             For j = I - 1 To start_deleting_at Step -1
                 If slide_timeline(I).Shape Is slide_timeline(j).Shape And _
                     (slide_timeline(j).Exit Or isEmphasisEffect(slide_timeline(j))) Then
@@ -1495,7 +1496,6 @@ Private Sub purgeFutureShapes(s As Slide)
                     ' beginning. However, first we need to check if this is a paragraph
                     ' effect and, in that case, if the exit/emphasis
                     ' effect applies to the very same paragraph.
-                    parI = getEffectParagraph(slide_timeline(I))
                     parJ = getEffectParagraph(slide_timeline(j))
                     If parI = parJ Then
                         ' Either none of the effects is a paragraph effect (in which
@@ -1509,9 +1509,13 @@ Private Sub purgeFutureShapes(s As Slide)
                 End If
             Next j
             If delete_shape_idx > 0 Then
-                ' Delete shapes for which a following entry effect exists
-                If deleteShape(slide_timeline(I).Shape, slide_timeline, delete_shape_idx) Then
-                    I = I - 1
+                ' Delete shapes for which a following entry effect exists.
+                ' Restrict deletion to text paragraphs only if instructed to
+                ' do so.
+                If parI > 0 Or Not textParagraphEffectsOnly Then
+                    If deleteShape(slide_timeline(I).Shape, slide_timeline, delete_shape_idx) Then
+                        I = I - 1
+                    End If
                 End If
             End If
         Next I
@@ -1678,7 +1682,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         ' purgeFutureShapes, or the shape itself will be
                         ' deleted!
                         s.TimeLine.MainSequence(1).Delete
-                        purgeFutureShapes s
+                        purgeFutureShapes s, True
                     Else
                         ' The shape is already present: I only need to add a
                         ' paragraph to it, if required.
@@ -1798,7 +1802,7 @@ Sub PPspliT_main()
                 additional_slide_present = True
                 Set slide_timeline = ActivePresentation.Slides(slide_number + 1).TimeLine.MainSequence
                 ' Remove all the shapes that will appear after a future entry effect
-                purgeFutureShapes ActivePresentation.Slides(slide_number)
+                purgeFutureShapes ActivePresentation.Slides(slide_number), False
                 purgeEffects ActivePresentation.Slides(slide_number)
                 alreadyPurged = True
             End If
@@ -1837,7 +1841,7 @@ Sub PPspliT_main()
             processed_anims = 0
             If Not alreadyPurged Then
                 ActivePresentation.Slides(slide_number).Duplicate
-                purgeFutureShapes ActivePresentation.Slides(slide_number)
+                purgeFutureShapes ActivePresentation.Slides(slide_number), False
                 purgeEffects ActivePresentation.Slides(slide_number)
                 alreadyPurged = True
                 

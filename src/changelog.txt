@@ -1,3 +1,17 @@
+1.5 (Jan 2012)
+- Fixed a small regression.
+  There is a special case when for a text box there are separate animations
+  for the shape and the contained text. In this case, just after having
+  pasted the box to implement an entry effect, the text contents must be
+  immediately deleted by the applyEffect function itself if they are
+  supposed to appear later on, because they have been pasted together with
+  the shape.
+  Now, this behaviour must be restricted to entry effects for text
+  paragraphs only. Applying the same behaviour (i.e., purging future
+  effects immediately after pasting a shape) to every shape leads to
+  incorrect results.
+
+
 1.4 (Jan 2012)
 - Solved a small bug in shape scaling effects.
   Resizing failed for all shapes having a locked aspect ratio and text
