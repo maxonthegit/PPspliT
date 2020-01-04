@@ -1,3 +1,14 @@
+1.9 (May 2013)
+- Fixed a (very subtle) problem that caused skipping of some animation
+  effects in the timeline during the preprocessing phase that deletes
+  shapes that are supposed to appear later in a slide. The problem occurred
+  when, during that phase, deletion of a shape caused disappearance
+  from the timeline of effects for the same shape that preceded the
+  currently processed effect.
+- Fixed release number in the about dialog for PowerPoint 2003.
+- Fixed progress percentage indication during the initial phase that fixes
+  slide numbers (it contained decimals).
+
 1.8 (Mar 2013)
 - Fixed some problems with animated text ranges containing text with
   superscript or subscript style.

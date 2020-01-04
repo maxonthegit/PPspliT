@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.8
+'                    |_|                version 1.9
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: March 2013
+' last update: May 2013
 ' Source code for PowerPoint 2007+
 '
 '
@@ -1538,8 +1538,27 @@ Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
                 ' Restrict deletion to text paragraphs only if instructed to
                 ' do so.
                 If parI > 0 Or Not textParagraphEffectsOnly Then
+                    ' Pay attention, because shape deletion (not paragraph deletion)
+                    ' causes animation effects to disappear from the timeline, so we
+                    ' need to decrease i in order to keep in sync with the currently
+                    ' processed effect.
+                    ' In general, deletion of a shape may cause several preceding
+                    ' effects to also disappear: here we count how many in order to
+                    ' understand how many positions should i go backward (note that
+                    ' future effects for the same shapes should not be counted, because
+                    ' they will safely disappear from the timeline without the need
+                    ' to realign the value of i).
+                    prevEffectsForThisShape = 0
+                    For k = 1 To i
+                        If slide_timeline(k).Shape Is slide_timeline(i).Shape Then
+                            prevEffectsForThisShape = prevEffectsForThisShape + 1
+                        End If
+                    Next k
+                    ' Assertion: at the end of the above iteration, prevEffectsForThisShape
+                    ' should always be >0 (because at least the i'th effect affects that
+                    ' shape)
                     If deleteShape(slide_timeline(i).Shape, slide_timeline, delete_shape_idx) Then
-                        i = i - 1
+                        i = i - prevEffectsForThisShape
                     End If
                 End If
             End If
@@ -1774,7 +1793,7 @@ Private Sub bakeSlideNumbers(start_index, end_index, maxProgressWidth)
     ' field into plain text
     For i = start_index To end_index
         ProgressForm.SlideBar.Width = (i - start_index + 1) / (end_index - start_index + 1) * maxProgressWidth
-        ProgressForm.SlideLabel = Str$((i - start_index + 1) / (end_index - start_index + 1) * 100) + " %"
+        ProgressForm.SlideLabel = Str$(Int((i - start_index + 1) / (end_index - start_index + 1) * 100)) + " %"
         ProgressForm.Repaint
         For Each sh In ActivePresentation.Slides(i).Shapes
             If sh.Type = msoPlaceholder Then
