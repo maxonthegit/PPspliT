@@ -7,10 +7,11 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.2
+'                    |_|                version 1.3
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: October 2011
+' last update: November 2011
+'
 '
 '
 ' PPspliT is a PowerPoint add-in that automatically splits animation effects
@@ -83,10 +84,10 @@
 ' the slide). All emphasis effects last until the end of the slide.
 '
 ' - Accurate rendering of color effects: they do not perfectly match
-' PowerPoint 's behavior (which is hard to reverse engineer) but still
+' PowerPoint's behavior (which is hard to reverse engineer) but still
 ' provide an acceptable emphasis effect.
 '
-' - Emphasis and motion effects that apply to a single text paragraph instead of
+' - Most emphasis and motion effects that apply to a single text paragraph instead of
 ' a whole shape. In general, all those effects whose rendering requires separation
 ' of the text frame from its parent shape are unlikely to be supported.
 '
@@ -107,6 +108,16 @@
 ' - Adjusting of the auto-fit property for text frames. This is due to some limits
 ' in the interface that PowerPoint offers for that property (in PPT<2007 it is
 ' totally absent, while in PPT 2007 it seems to work fairly well).
+'
+' - Accurate rendering of some rotation effects. Actually, during the presentation
+' powerpoint rotates shapes around the center of the visible shape body. That is,
+' if you have a very large container box for a shape, but the actual shape only
+' takes a small part of the box (like, e.g., in the case of an arc), PowerPoint will
+' rotate the shape around its actual center, not the container box center.
+'
+' - Some glitches exist with exit entry/effects that affect shapes that are part of
+' a slide layout. The reason is that those shapes are turned into placeholders
+' (instead of disappearing) when one attempts to delete them.
 '
 ' - Everything else I am not aware of. ;-)
 '
@@ -247,7 +258,7 @@ Private Sub copyFontAttributes(f1 As Font, f2 As Font)
     f1.Bold = f2.Bold
     f1.Italic = f2.Italic
     f1.Underline = f2.Underline
-    assignColor f1.color, f2.color
+    assignColor f1.Color, f2.Color
 End Sub
 
 '
@@ -302,13 +313,7 @@ End Sub
 ' effect (besides the shape or paragraph).
 '
 Private Function deleteShape(sh As Shape, theTimeline As Sequence, effectId)
-    theParagraph = -1
-    On Error Resume Next
-    ' The following assignment may fail because the Paragraph property does not
-    ' exist at all for those effects that are applied to shapes instead of text.
-    ' But, was this truly expected by design? :-?
-    theParagraph = theTimeline(effectId).Paragraph
-    On Error GoTo 0
+    theParagraph = getEffectParagraph(theTimeline(effectId))
     If theParagraph > 0 Then
         ' This appears to be a text paragraph effect
         oldCount = theTimeline.Count
@@ -585,9 +590,33 @@ End Sub
 '
 Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     On Error GoTo recover
+    ePar = getEffectParagraph(e)
+    ' Here I should be supposed to check the value of
+    ' e.Shape.HasTextFrame before attemping to access
+    ' the sh.TextFrame.TextRange property. Guess what?
+    ' In some cases PowerPoint returns false even if
+    ' properties like sh.TextFrame.TextRange.Font.Size
+    ' can be accessed. Is it me or could this be yet
+    ' another bug?
+    ' Worked around by attempting assignments anyway, and
+    ' watching for errors during the process.
+    On Error Resume Next
+    shTextRange = Null
+    shTextRange2 = Null
+    If ePar > 0 Then
+        ' This effect applies to a text paragraph
+        Set shTextRange = sh.TextFrame.TextRange.Paragraphs(ePar)
+        Set shTextRange2 = sh.TextFrame2.TextRange.Paragraphs(ePar)
+    Else
+        Set shTextRange = sh.TextFrame.TextRange
+        Set shTextRange2 = sh.TextFrame2.TextRange
+    End If
+    On Error GoTo recover
+    ' Note: if an effect acts both on a text element and on its container
+    ' shape, then the effect must first be applied to the container shape,
+    ' in order to avoid unpredictable automatic resizing.
     If e.EffectType = msoAnimEffectGrowShrink Then
-        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * (e.Behaviors(1).ScaleEffect.ByX / 100 + e.Behaviors(1).ScaleEffect.ByY / 100) / 2
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             ' I am not scaling a bitmap here, therefore I need to
             ' recompute map X and Y scaling in accordance with the shape
             ' rotation.
@@ -598,21 +627,106 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
             sh.ScaleWidth scaleX, msoFalse, msoScaleFromMiddle
             sh.ScaleHeight scaleY, msoFalse, msoScaleFromMiddle
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Size = shTextRange.Font.Size * (e.Behaviors(1).ScaleEffect.ByX / 100 + e.Behaviors(1).ScaleEffect.ByY / 100) / 2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectChangeFontColor Then
-        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                assignColor shTextRange.Font.Color, e.EffectParameters.Color2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectChangeFillColor Then
         If sh.Fill.Transparency < 1 Then
             sh.Fill.Solid
             assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
         End If
     ElseIf e.EffectType = msoAnimEffectChangeFontStyle Then
-        sh.TextFrame.TextRange.Font.Italic = (e.Behaviors(1).SetEffect.To = 1)
-        sh.TextFrame.TextRange.Font.Bold = (e.Behaviors(2).SetEffect.To = 1)
-        sh.TextFrame.TextRange.Font.Underline = (e.Behaviors(3).SetEffect.To = 1)
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Italic = (e.Behaviors(1).SetEffect.To = 1)
+                shTextRange.Font.Bold = (e.Behaviors(2).SetEffect.To = 1)
+                shTextRange.Font.Underline = (e.Behaviors(3).SetEffect.To = 1)
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectTransparency Then
-        ' Only Office 2007 or newer exposes text font transparency
-        ' in VBA, therefore this piece of code has been removed.
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        ' Potentially bad consequence: objects that are made totally
+        ' transparent cannot have their transparency changed
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Line.Transparency < 1 Then
                 sh.Line.Transparency = e.EffectParameters.amount
             End If
@@ -620,23 +734,109 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
                 sh.Fill.Transparency = e.EffectParameters.amount
             End If
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange2 = Null
+            On Error Resume Next
+            Set shTextRange2 = sh.GroupItems(shapeId).TextFrame2.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange2) Then
+                If shTextRange2.Font.Fill.Transparency < 1 Then
+                    shTextRange2.Font.Fill.Transparency = e.EffectParameters.amount
+                End If
+                If shTextRange2.Font.Line.Transparency < 1 Then
+                    shTextRange2.Font.Line.Transparency = e.EffectParameters.amount
+                End If
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange2 = Null
+                    On Error Resume Next
+                    Set shTextRange2 = sh.GroupItems(shapeId).TextFrame2.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectChangeFont Then
-        sh.TextFrame.TextRange.Font.Name = e.EffectParameters.FontName
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Name = e.EffectParameters.FontName
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectChangeLineColor Then
         assignColor sh.Line.ForeColor, e.EffectParameters.Color2
     ElseIf e.EffectType = msoAnimEffectChangeFontSize Then
-        ' Please leave the /1 alone: it is required for some strange internal
-        ' type conversion, otherwise leading to improper font sizes :-(
-        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * e.Behaviors(1).PropertyEffect.To / 1
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                ' Please leave the /1 alone: it is required for some strange internal
+                ' type conversion, otherwise leading to improper font sizes :-(
+                shTextRange.Font.Size = shTextRange.Font.Size * e.Behaviors(1).PropertyEffect.To / 1
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectSpin Then
         ' Rotating just the text is not supported
-        sh.Rotation = e.Behaviors(1).RotationEffect.By
+        sh.Rotation = sh.Rotation + e.Behaviors(1).RotationEffect.By
     ElseIf e.EffectType = msoAnimEffectDesaturate Then
-        With sh.TextFrame.TextRange.Font.color
-            colToRGB .RGB, r, g, b
-            .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
-        End With
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 With sh.Fill.ForeColor
                     colToRGB .RGB, r, g, b
@@ -654,18 +854,78 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
                 End With
             End If
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                With shTextRange.Font.Color
+                    colToRGB .RGB, r, g, b
+                    .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
+                End With
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectColorWave Or e.EffectType = msoAnimEffectColorBlend Or _
             e.EffectType = msoAnimEffectBrushOnColor Or e.EffectType = msoAnimEffectTeeter Then
-        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
             End If
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                assignColor shTextRange.Font.Color, e.EffectParameters.Color2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectComplementaryColor2 Then
         ' PowerPoint computes the complementary color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 180
             End If
@@ -677,14 +937,41 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
         ' Font scaling alone is not supported for this effect
         sh.ScaleHeight 1.5, msoFalse
         shiftY = sh.Height / 4
-        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
         If sh.Fill.Transparency < 1 Then
             assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
         End If
         sh.Top = sh.Top - shiftY
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                assignColor shTextRange.Font.Color, e.EffectParameters.Color2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectLighten Then
-        changeLightness sh.TextFrame.TextRange.Font.color, 0.3
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 changeLightness sh.Fill.ForeColor, 0.3
             End If
@@ -692,12 +979,69 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
                 changeLightness sh.Line.ForeColor, 0.3
             End If
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                changeLightness shTextRange.Font.Color, 0.3
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectBrushOnUnderline Then
-        sh.TextFrame.TextRange.Font.Underline = msoTrue
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Underline = msoTrue
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectComplementaryColor Then
         ' PowerPoint computes the complementary color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 120
             End If
@@ -708,7 +1052,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectContrastingColor Then
         ' PowerPoint computes the contrasting color in some other way.
         ' I feel pretty satisfied with this rotation in the HSL space
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 rotateColor sh.Fill.ForeColor, 90
             End If
@@ -721,8 +1065,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
     ElseIf e.EffectType = msoAnimEffectFlashBulb Then
         ' msoAnimEffectFlashBulb is a non-permanent effect
     ElseIf e.EffectType = msoAnimEffectDarken Then
-        changeLightness sh.TextFrame.TextRange.Font.color, -0.3
-        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Or e.Shape.Type = msoGroup Then
             If sh.Fill.Transparency < 1 Then
                 changeLightness sh.Fill.ForeColor, -0.3
             End If
@@ -730,25 +1073,138 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
                 changeLightness sh.Line.ForeColor, -0.3
             End If
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                changeLightness shTextRange.Font.Color, -0.3
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectGrowWithColor Then
-        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * 1.5
-        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
         If sh.Fill.Transparency < 1 Then
             sh.Fill.Solid
             assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
         End If
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Size = shTextRange.Font.Size * 1.5
+                assignColor shTextRange.Font.Color, e.EffectParameters.Color2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectFlicker Then
         ' msoAnimEffectFlicker is a non-permanent effect
     ' *** WARNING: the shaking effect has no associated effecttype (PowerPoint bug :-((( )
     ElseIf e.EffectType = msoAnimEffectBoldReveal Then
-        sh.TextFrame.TextRange.Font.Bold = msoTrue
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Bold = msoTrue
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ElseIf e.EffectType = msoAnimEffectWave Then
         ' msoAnimEffectWave is a non-permanent effect
     ElseIf e.EffectType = msoAnimEffectStyleEmphasis Then
-        sh.TextFrame.TextRange.Font.Italic = msoTrue
-        sh.TextFrame.TextRange.Font.Bold = msoTrue
-        sh.TextFrame.TextRange.Font.Underline = msoTrue
-        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+        ' Font effects may be applied to a group. In that case,
+        ' at least for versions of PowerPoint prior to 2007, we
+        ' are forced to apply the effect for each member of the
+        ' group.
+        shapeId = 1
+        If sh.Type = msoGroup Then
+            shTextRange = Null
+            On Error Resume Next
+            Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+            On Error GoTo recover
+        End If
+        Do
+            If Not IsNull(shTextRange) Then
+                shTextRange.Font.Italic = msoTrue
+                shTextRange.Font.Bold = msoTrue
+                shTextRange.Font.Underline = msoTrue
+                assignColor shTextRange.Font.Color, e.EffectParameters.Color2
+            End If
+            shapeId = shapeId + 1
+            If sh.Type = msoGroup Then
+                If shapeId > sh.GroupItems.Count Then
+                    shapeId = 0
+                Else
+                    shTextRange = Null
+                    On Error Resume Next
+                    Set shTextRange = sh.GroupItems(shapeId).TextFrame.TextRange
+                    On Error GoTo recover
+                End If
+            Else
+                shapeId = 0
+            End If
+        Loop Until shapeId = 0
     ' *** WARNING: the blinking effect has no associated effecttype (PowerPoint bug :-((( )
     ElseIf e.EffectType = msoAnimEffectBlast Then
         ' msoAnimEffectBlast has too vague a behavior to be implemented :-O
@@ -971,7 +1427,22 @@ recoverIsEmphasis:
     ' assume that an unrecognizable effect is an emphasis effect.
     isEmphasisEffect = True
 End Function
-
+'
+' This function takes an effect as argument. If the
+' effect is applied to a text paragraph, it returns the
+' index of that text paragraph (in its container shape).
+' Otherwise, it returns -1.
+'
+Private Function getEffectParagraph(e As Effect)
+    paragraph_idx = -1
+    On Error Resume Next
+    ' The following assignment may fail because the Paragraph property does not
+    ' exist at all for those effects that are applied to shapes instead of text.
+    ' But, was this truly expected by design? :-?
+    paragraph_idx = e.Paragraph
+    On Error GoTo 0
+    getEffectParagraph = paragraph_idx
+End Function
 '
 ' This subroutine deletes all the shapes for which the first
 ' effect in the sequence is an entry effect. This is reasonable,
@@ -1005,9 +1476,23 @@ Private Sub purgeFutureShapes(s As Slide)
             For j = I - 1 To start_deleting_at Step -1
                 If slide_timeline(I).Shape Is slide_timeline(j).Shape And _
                     (slide_timeline(j).Exit Or isEmphasisEffect(slide_timeline(j))) Then
-                    ' Abort deletion: there is an exit/emphasis effect for the
-                    ' same shape before the entry effect
-                    delete_shape_idx = -1
+                    ' Probably we need to abort deletion: there may
+                    ' be an exit/emphasis effect for the same shape before the entry effect.
+                    ' In that case, this means that the shape must be visible at the
+                    ' beginning. However, first we need to check if this is a paragraph
+                    ' effect and, in that case, if the exit/emphasis
+                    ' effect applies to the very same paragraph.
+                    parI = getEffectParagraph(slide_timeline(I))
+                    parJ = getEffectParagraph(slide_timeline(j))
+                    If parI = parJ Then
+                        ' Either none of the effects is a paragraph effect (in which
+                        ' case the match is ok because both effects work on the same shape)
+                        ' or both effects are paragraph effects and work on the same paragraph
+                        ' (in which case the match is still ok because they affect the
+                        ' same graphical element). If the match is ok, then deletion
+                        ' must be aborted.
+                        delete_shape_idx = -1
+                    End If
                 End If
             Next j
             If delete_shape_idx > 0 Then
@@ -1119,6 +1604,14 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                     If Not findShape(s, sh.AlternativeText) > 0 Then
                         ' The shape is not already present
                         sh.Copy
+                        ' Invoke purgeEffects to clear any subsequent entry
+                        ' effects, which may interfere
+                        ' with calls to purgeFutureShapes below in this same
+                        ' subroutine.
+                        ' (note that these subsequent calls may happen when
+                        ' in the same slide multiple objects appear simultaneously,
+                        ' and therefore applyEffect is invoked multiple times).
+                        purgeEffects s
                         s.Shapes.Paste
                         Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
                         ' Coordinates of the pasted shape are sometimes
@@ -1158,6 +1651,21 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         ' notifying of a change in the shape size
                         newShape.Width = sh.Width
                         newShape.Height = sh.Height
+                        ' Now we have pasted the shape. Note that we paste
+                        ' only one shape at a time, therefore it should carry
+                        ' with itself its own entry effect. There is one
+                        ' exception: a single text box shape may be associated with
+                        ' several subsequent entry effects, that correspond
+                        ' to paragraphs in the text appearing one after the
+                        ' other (and after the text box itself has appeared).
+                        ' We should get rid of paragraphs that are supposed
+                        ' to appear later on, and this is why we call purgeFutureShapes
+                        ' also here. Note that we should remove the entry effect
+                        ' for the shape we have just added before invoking
+                        ' purgeFutureShapes, or the shape itself will be
+                        ' deleted!
+                        s.TimeLine.MainSequence(1).Delete
+                        purgeFutureShapes s
                     Else
                         ' The shape is already present: I only need to add a
                         ' paragraph to it, if required.
@@ -1169,6 +1677,12 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         On Error GoTo 0
                         If par > 0 Then
                             copyParagraph s.Shapes(findShape(s, sh.AlternativeText)).TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
+                            Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                            ' Sometimes text auto-fitting does not seem to act
+                            ' properly: this is an attempt to "awaken" it by
+                            ' notifying of a change in the shape size
+                            newShape.Width = sh.Width
+                            newShape.Height = sh.Height
                         End If
                     End If
                     current_effect.Delete
@@ -1402,68 +1916,16 @@ error_handler:
     End If
 End Sub
 
-' The status of the "split on mouse-triggered animations" button
-' has been changed
-Sub changeMouseSplitStatus()
-    Dim myBar As CommandBar, myButton As CommandBarButton
-    For Each b In CommandBars
-        If b.Name = "PPspliT" Then
-            Set myBar = b
-        End If
-    Next b
-    Set myButton = myBar.Controls(2)
-    If myButton.state = msoButtonDown Then
-        myButton.state = msoButtonUp
-    Else
-        myButton.state = msoButtonDown
-    End If
-    splitMouseTriggered = (myButton.state = msoButtonDown)
+' The "Split on click-triggered animations" check box
+' has been clicked
+Sub CTcBoxChanged(button As Iribboncontrol, pressed As Boolean)
+    splitMouseTriggered = pressed
 End Sub
 
-' Add the PPspliT toolbar, if not present
-Sub auto_open()
-    Dim a As AddIn
-    For Each a In AddIns
-        If a.Name = "PPspliT" Then
-            aPath = a.Path
-        End If
-    Next a
+' The "Split on click-triggered animations" check box
+' is checked by default
+Sub CTcBoxDefault(button As Iribboncontrol, ByRef state)
+    state = True
     splitMouseTriggered = True
-    foundBar = False
-    For Each b In CommandBars
-        If b.Name = "PPspliT" Then foundBar = True
-    Next b
-    If Not foundBar Then
-        Dim newBar As CommandBar, newButton As CommandBarButton
-        Set newBar = CommandBars.Add(Name:="PPspliT", Position:=msoBarTop, temporary:=True)
-        Set newButton = newBar.Controls.Add(msoControlButton)
-        newButton.OnAction = "PPspliT_main"
-        newButton.TooltipText = "Split animations"
-        If aPath <> "" Then
-            newButton.Picture = LoadPicture(aPath + "\ppsplit-button.gif")
-        End If
-        Set newButton = newBar.Controls.Add(msoControlButton)
-        newButton.OnAction = "changeMouseSplitStatus"
-        newButton.TooltipText = "Split on mouse-triggered animation effects"
-        If aPath <> "" Then
-            newButton.Picture = LoadPicture(aPath + "\mouse-button.gif")
-        End If
-        newButton.state = msoButtonDown
-        newBar.Visible = True
-    End If
 End Sub
 
-' Remove the PPspliT toolbar, if existing
-Sub auto_close()
-    Dim myBar As CommandBar
-    foundBar = False
-    For Each b In CommandBars
-        If b.Name = "PPspliT" Then
-            foundBar = True
-            Set myBar = b
-        End If
-    Next b
-    If foundBar Then
-        myBar.Delete
-    End If
-End Sub
