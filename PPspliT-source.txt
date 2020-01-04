@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.16
+'                    |_|                version 1.17
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: February 2017
+' last update: June 2017
 ' Source code for PowerPoint 2007+
 '
 '
@@ -1577,17 +1577,22 @@ Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
     Set slide_timeline = s.TimeLine.MainSequence
     ProgressForm.infoLabel = "Preprocessing slide effects..."
     ProgressForm.Repaint
-    i = 1: start_deleting_at = 0
-    While i <= slide_timeline.Count And start_deleting_at = 0
-        If slide_timeline(i).Timing.TriggerType <> msoAnimTriggerAfterPrevious And _
-           slide_timeline(i).Timing.TriggerType <> msoAnimTriggerWithPrevious Then
-            ' Start deleting shapes from the next mouse-triggered event.
-            ' Any preceding shapes will be deleted when their effects
-            ' are individually considered
-            start_deleting_at = i
-        End If
-        i = i + 1
-    Wend
+    If doNotSplitMouseTriggered Then
+        start_deleting_at = 1
+    Else
+        i = 1: start_deleting_at = 0
+        While i <= slide_timeline.Count And start_deleting_at = 0
+            If slide_timeline(i).Timing.TriggerType <> msoAnimTriggerAfterPrevious And _
+               slide_timeline(i).Timing.TriggerType <> msoAnimTriggerWithPrevious Then
+                ' Start deleting shapes from the next mouse-triggered event.
+                ' Any preceding shapes will be deleted when their effects
+                ' are individually considered
+                start_deleting_at = i
+            End If
+            i = i + 1
+        Wend
+    End If
+    
     If start_deleting_at > 0 Then
         For i = start_deleting_at To s.TimeLine.MainSequence.Count
             If i > s.TimeLine.MainSequence.Count Then Exit For

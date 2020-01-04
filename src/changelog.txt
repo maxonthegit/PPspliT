@@ -1,3 +1,9 @@
+1.17 (June 2017)
+- When the "Split on click-triggered animations" box was unchecked, animation
+  effects occurring in the timeline before the first mouse-triggered effect
+  were incorrectly processed (thanks to William Bonaldo Falls for providing me
+  with a minimal example showing the problem).
+
 1.16 (February 2017)
 - Two main improvements:
   1) A dialog box is now displayed when a range of slides is currently
