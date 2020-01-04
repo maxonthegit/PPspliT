@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.14
+'                    |_|                version 1.15
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: August 2015
+' last update: June 2016
 ' Source code for PowerPoint 2007+
 '
 '
@@ -95,6 +95,10 @@
 ' - Most emphasis and motion effects that apply to a single text paragraph instead of
 ' a whole shape. In general, all those effects whose rendering requires separation
 ' of the text frame from its parent shape are unlikely to be supported.
+'
+' - Text effects that are applied to paragraphs containing a mixture of standard text
+' and equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
+' objects).
 '
 ' - Accurate alignment of shapes in a group. This is hardly obtainable, as it
 ' depends on PowerPoint's copy&paste behavior and in the affected cases it can

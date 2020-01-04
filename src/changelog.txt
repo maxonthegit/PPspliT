@@ -1,3 +1,7 @@
+1.15 (June 2016)
+- No "real" changes. Just relaxed some warnings in the installer about
+  PowerPoint 2016 being unsupported (which was incorrect).
+
 1.14 (August 2015)
 - Improved handling of animations of text paragraphs.
   In particular, copying paragraphs between shapes sometimes required
