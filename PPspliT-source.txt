@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.18
+'                    |_|                version 1.19
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: January 2018
+' last update: March 2018
 ' Source code for PowerPoint 2007+
 '
 '
@@ -134,6 +134,8 @@
 ' - Handling of bullet symbols in itemized lists: bullets may sometimes be lost or
 ' replaced with other symbols due to PowerPoint issues in pasting paragraph formats
 ' and to the inability to access the picture currently used for a bullet.
+'
+' - Animations in slide masters.
 '
 ' - Everything else I am not aware of. ;-)
 '
@@ -467,9 +469,13 @@ Private Sub assignColor(col1 As ColorFormat, col2 As ColorFormat)
         ' scheme indexes.
         On Error Resume Next
         col1.SchemeColor = col2.SchemeColor
-        ' The brightness level is referred to the color in the
-        ' first row of the color palette (that is, the scheme color)
-        col1.Brightness = col2.Brightness
+        ' Apparently the Brightness attribute is only supported starting
+        ' from Office 2010 (14.0)
+        If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
+            ' The brightness level is referred to the color in the
+            ' first row of the color palette (that is, the scheme color)
+            col1.Brightness = col2.Brightness
+        End If
         On Error GoTo 0
     Else
         col1.RGB = col2.RGB
