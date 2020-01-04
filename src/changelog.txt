@@ -1,3 +1,8 @@
+1.2 (Oct 2011)
+- Improved (un)installer: now (un)configures the add-in for every
+  installed PowerPoint releases, not just the first one.
+  Moreover, detection of installed PowerPoint releases has been improved.
+
 1.1 (Dec 2010)
 - Worked around a PowerPoint bug affecting handling of effects with
   the "hide on next mouse click" option activated.

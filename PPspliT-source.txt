@@ -7,11 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.1
+'                    |_|                version 1.2
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: December 2010
-'
+' last update: October 2011
 '
 '
 ' PPspliT is a PowerPoint add-in that automatically splits animation effects
@@ -611,14 +610,8 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
         sh.TextFrame.TextRange.Font.Bold = (e.Behaviors(2).SetEffect.To = 1)
         sh.TextFrame.TextRange.Font.Underline = (e.Behaviors(3).SetEffect.To = 1)
     ElseIf e.EffectType = msoAnimEffectTransparency Then
-        ' Potentially bad consequence: objects that are made totally
-        ' transparent cannot have their transparency changed
-        If sh.TextFrame2.TextRange.Font.Fill.Transparency < 1 Then
-            sh.TextFrame2.TextRange.Font.Fill.Transparency = e.EffectParameters.amount
-        End If
-        If sh.TextFrame2.TextRange.Font.Line.Transparency < 1 Then
-            sh.TextFrame2.TextRange.Font.Line.Transparency = e.EffectParameters.amount
-        End If
+        ' Only Office 2007 or newer exposes text font transparency
+        ' in VBA, therefore this piece of code has been removed.
         If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
             If sh.Line.Transparency < 1 Then
                 sh.Line.Transparency = e.EffectParameters.amount
@@ -1176,12 +1169,6 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         On Error GoTo 0
                         If par > 0 Then
                             copyParagraph s.Shapes(findShape(s, sh.AlternativeText)).TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
-                            Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
-                            ' Sometimes text auto-fitting does not seem to act
-                            ' properly: this is an attempt to "awaken" it by
-                            ' notifying of a change in the shape size
-                            newShape.Width = sh.Width
-                            newShape.Height = sh.Height
                         End If
                     End If
                     current_effect.Delete
@@ -1415,16 +1402,68 @@ error_handler:
     End If
 End Sub
 
-' The "Split on click-triggered animations" check box
-' has been clicked
-Sub CTcBoxChanged(button As Iribboncontrol, pressed As Boolean)
-    splitMouseTriggered = pressed
+' The status of the "split on mouse-triggered animations" button
+' has been changed
+Sub changeMouseSplitStatus()
+    Dim myBar As CommandBar, myButton As CommandBarButton
+    For Each b In CommandBars
+        If b.Name = "PPspliT" Then
+            Set myBar = b
+        End If
+    Next b
+    Set myButton = myBar.Controls(2)
+    If myButton.state = msoButtonDown Then
+        myButton.state = msoButtonUp
+    Else
+        myButton.state = msoButtonDown
+    End If
+    splitMouseTriggered = (myButton.state = msoButtonDown)
 End Sub
 
-' The "Split on click-triggered animations" check box
-' is checked by default
-Sub CTcBoxDefault(button As Iribboncontrol, ByRef state)
-    state = True
+' Add the PPspliT toolbar, if not present
+Sub auto_open()
+    Dim a As AddIn
+    For Each a In AddIns
+        If a.Name = "PPspliT" Then
+            aPath = a.Path
+        End If
+    Next a
     splitMouseTriggered = True
+    foundBar = False
+    For Each b In CommandBars
+        If b.Name = "PPspliT" Then foundBar = True
+    Next b
+    If Not foundBar Then
+        Dim newBar As CommandBar, newButton As CommandBarButton
+        Set newBar = CommandBars.Add(Name:="PPspliT", Position:=msoBarTop, temporary:=True)
+        Set newButton = newBar.Controls.Add(msoControlButton)
+        newButton.OnAction = "PPspliT_main"
+        newButton.TooltipText = "Split animations"
+        If aPath <> "" Then
+            newButton.Picture = LoadPicture(aPath + "\ppsplit-button.gif")
+        End If
+        Set newButton = newBar.Controls.Add(msoControlButton)
+        newButton.OnAction = "changeMouseSplitStatus"
+        newButton.TooltipText = "Split on mouse-triggered animation effects"
+        If aPath <> "" Then
+            newButton.Picture = LoadPicture(aPath + "\mouse-button.gif")
+        End If
+        newButton.state = msoButtonDown
+        newBar.Visible = True
+    End If
 End Sub
 
+' Remove the PPspliT toolbar, if existing
+Sub auto_close()
+    Dim myBar As CommandBar
+    foundBar = False
+    For Each b In CommandBars
+        If b.Name = "PPspliT" Then
+            foundBar = True
+            Set myBar = b
+        End If
+    Next b
+    If foundBar Then
+        myBar.Delete
+    End If
+End Sub
