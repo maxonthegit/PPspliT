@@ -1,3 +1,12 @@
+1.11 (Jul 2013)
+- Fixed a bug that could cause crashes of the add-in in at least 50% of the
+  installations when processing path motion effects. Evidence of the bug
+  depended on the nationality where the add-in was installed (yes, it's not
+  a joke!)
+  The bug lied in the conversion of decimal separator characters from the
+  '.' character used in the internal representation of path motion effects
+  to the character adopted in the host machine's locale setting.
+
 1.10 (May 2013)
 - Fixed a small bug that could cause a crash when fixing slide numbers in
   the presence of multiple slide masters (the first slide master was not
