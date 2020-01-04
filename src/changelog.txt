@@ -1,3 +1,16 @@
+1.18 (January 2018)
+- Font colors were sometimes set incorrectly when rendering text effects.
+  In particular, text was sometimes improperly changed to white color after
+  a text entry effect was processed by the add-in, thus making it invisible
+  on a white background. This happened when the original font color was set
+  to one of the scheme colors. In fact, in this case instead of restoring the
+  original RGB values of the font color, the add-in just restored the scheme
+  color index (correct) while disregarding the associated brightness level
+  (incorrect). As a consequence, text that was set to a gray shade from the
+  slide color scheme was turned to white (because, indeed, the brightness
+  level of the gray shade was lost). Thanks to Mark Foti for pointing out this
+  issue.
+
 1.17 (June 2017)
 - When the "Split on click-triggered animations" box was unchecked, animation
   effects occurring in the timeline before the first mouse-triggered effect
