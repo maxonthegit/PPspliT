@@ -1,3 +1,14 @@
+1.8 (Mar 2013)
+- Fixed some problems with animated text ranges containing text with
+  superscript or subscript style.
+- Very minor fixes in the PowerPoint 2003 toolbar (there was a missing
+  button group separator).
+- Removed a misplaced comment about the unsupported features in the
+  source code for PowerPoint 2007.
+- The progress bar documenting the advancement of the slide number adjustment
+  missed the percentage value in PowerPoint 2007.
+
+
 1.7 (Jan 2013)
 - If slide numbers are displayed in slide footers, it is now possible to
   keep them consistent with those appearing in the original presentation:

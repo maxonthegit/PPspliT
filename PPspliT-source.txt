@@ -7,10 +7,11 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.7
+'                    |_|                version 1.8
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: January 2013
+' last update: March 2013
+' Source code for PowerPoint 2007+
 '
 '
 '
@@ -78,8 +79,6 @@
 '
 ' DOES NOT, and probably will never SUPPORT:
 '
-' - Simultaneous path and resize effects (it seems that path coordinates are
-' scaled too).
 ' - Shape dimming after playing an effect.
 '
 ' - Effects triggered by mouse clicks on a specific shape.
@@ -274,6 +273,15 @@ Private Sub copyFontAttributes(f1 As Font, f2 As Font)
     f1.Bold = f2.Bold
     f1.Italic = f2.Italic
     f1.Underline = f2.Underline
+    ' Warning: assigning just one between the Subscript and the Superscript
+    ' attributes, even to the msoFalse value, may impact the other. Therefore
+    ' these attributes must be assigned only when strictly required.
+    If f2.Subscript Then f1.Subscript = msoTrue
+    If f2.Superscript Then f1.Superscript = msoTrue
+    If Not f2.Subscript And Not f2.Superscript Then
+        f1.Subscript = msoFalse
+        f1.Superscript = msoFalse
+    End If
     assignColor f1.Color, f2.Color
 End Sub
 
@@ -1766,6 +1774,7 @@ Private Sub bakeSlideNumbers(start_index, end_index, maxProgressWidth)
     ' field into plain text
     For i = start_index To end_index
         ProgressForm.SlideBar.Width = (i - start_index + 1) / (end_index - start_index + 1) * maxProgressWidth
+        ProgressForm.SlideLabel = Str$((i - start_index + 1) / (end_index - start_index + 1) * 100) + " %"
         ProgressForm.Repaint
         For Each sh In ActivePresentation.Slides(i).Shapes
             If sh.Type = msoPlaceholder Then
