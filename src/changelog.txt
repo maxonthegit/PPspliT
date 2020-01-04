@@ -1,3 +1,9 @@
+1.13 (February 2015)
+- Improved processing of bullet formatting in itemized lists. Still far
+  from being perfect, but a richer number of cases should now be correctly
+  handled (thanks to Scott Otterson for sending a minimal example
+  triggering a specific instance of the problem).
+
 1.12 (October 2014)
 - Fixed a bug in the clearParagraph subroutine: the bullet character was
   improperly set to character 160, but it had to be set to character 32

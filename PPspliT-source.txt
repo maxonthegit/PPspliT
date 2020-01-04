@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.12
+'                    |_|                version 1.13
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: October 2014
+' last update: February 2015
 ' Source code for PowerPoint 2007+
 '
 '
@@ -126,6 +126,10 @@
 '
 ' - Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
 ' <=2003 using the Microsoft Office Compatibility Pack.
+'
+' - Handling of bullet symbols in itemized lists: bullets may sometimes be lost or
+' replaced with other symbols due to PowerPoint issues in pasting paragraph formats
+' and to the inability to access the picture currently used for a bullet.
 '
 ' - Everything else I am not aware of. ;-)
 '
@@ -273,7 +277,23 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     End If
     ' Apply contents and formatting from the original paragraph
     p2.Copy
+    
+    ' It seems that the following 3 assignments, applied *before* pasting
+    ' the paragraph, reduce the number of cases in which bullet symbols
+    ' are lost. The reason why this happens is completely obscure to me, but
+    ' repeating the assignment *after* pasting (where this should happen)
+    ' seems to be harmless.
+    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
+    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
+    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
+    
     p1.Paste
+    
+    p1.IndentLevel = p2.IndentLevel
+    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
+    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
+    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
+    
     ' Restore bullet formatting. Since there seems to be no
     ' way to get the currently used image for a bullet, care
     ' must be taken in updating the bullet attributes only if
@@ -282,7 +302,12 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     If p1.ParagraphFormat.Bullet.Type <> p2.ParagraphFormat.Bullet.Type Then
         p1.ParagraphFormat.Bullet.Type = p2.ParagraphFormat.Bullet.Type
     End If
-    If p1.ParagraphFormat.Bullet.StartValue <> p2.ParagraphFormat.Bullet.StartValue Then
+    If p2.ParagraphFormat.Bullet.Type = ppBulletUnnumbered And p1.ParagraphFormat.Bullet.Character <> p2.ParagraphFormat.Bullet.Character Then
+        p1.ParagraphFormat.Bullet.Character = p2.ParagraphFormat.Bullet.Character
+        copyFontAttributes p1.ParagraphFormat.Bullet.Font, p2.ParagraphFormat.Bullet.Font
+    End If
+
+    If p2.ParagraphFormat.Bullet.Type = ppBulletNumbered And p1.ParagraphFormat.Bullet.StartValue <> p2.ParagraphFormat.Bullet.StartValue Then
         p1.ParagraphFormat.Bullet.StartValue = p2.ParagraphFormat.Bullet.StartValue
     End If
     If p2.ParagraphFormat.Bullet.Type = ppBulletNumbered And p1.ParagraphFormat.Bullet.Style <> p2.ParagraphFormat.Bullet.Style Then
@@ -1777,8 +1802,30 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         par = current_effect.Paragraph
                         On Error GoTo 0
                         If par > 0 Then
-                            copyParagraph s.Shapes(findShape(s, sh.AlternativeText)).TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
                             Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                            copyParagraph newShape.TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
+                            
+                            ' Attempt to preserve indentations and margins (these are not
+                            ' part of paragraph information, but rather of a Ruler object).
+                            ' In principle, the number of ruler levels (i.e., possible
+                            ' indentation levels) is fixed. However, according to the documentation
+                            ' it should be 5 whereas in practice I have seen cases where it
+                            ' counts up to 9. To stay on the safe side, the number of
+                            ' ruler levels here is parametric.
+                            For ruler_level = 1 To sh.TextFrame.Ruler.Levels.Count
+                                ' For some obscure reasons, out-of-range margins are sometimes
+                                ' returned (for example, corresponding to the smallest possible
+                                ' value in a Long variable). In this case, it's better to
+                                ' refrain from copying the margin value, or an error would be
+                                ' raised.
+                                If Abs(sh.TextFrame.Ruler.Levels(ruler_level).FirstMargin) < 10000000 Then
+                                    newShape.TextFrame.Ruler.Levels(ruler_level).FirstMargin = sh.TextFrame.Ruler.Levels(ruler_level).FirstMargin
+                                End If
+                                If Abs(sh.TextFrame.Ruler.Levels(ruler_level).LeftMargin) < 10000000 Then
+                                    newShape.TextFrame.Ruler.Levels(ruler_level).LeftMargin = sh.TextFrame.Ruler.Levels(ruler_level).LeftMargin
+                                End If
+                            Next ruler_level
+                            
                             ' Sometimes text auto-fitting does not seem to act
                             ' properly: this is an attempt to "awaken" it by
                             ' notifying of a change in the shape size
