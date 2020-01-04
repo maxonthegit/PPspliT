@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.5"
+	StrCpy $PPSPLIT_RELEASE "1.6"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -167,9 +167,9 @@ ${un}Loop:
 	${Else}
 		; Office 2007 or newer
 		${If} $RELEASE_ARCH == "x86"
-			StrCpy $ADDIN_FILE "$INSTDIR\PPspliT-x86.ppam"
+			StrCpy $ADDIN_FILE "$INSTDIR\PPspliT.ppam"
 		${Else}
-			StrCpy $ADDIN_FILE "$INSTDIR\PPspliT-amd64.ppam"
+			StrCpy $ADDIN_FILE "$INSTDIR\PPspliT.ppam"
 		${EndIf}
 	${EndIf}
 	Call $REGISTRATION_HANDLER
@@ -227,8 +227,7 @@ Section ""
 	File common_resources\ppsplit-button.gif
 	File common_resources\ppsplit.ico
 	File PPT11-\*.*
-	File PPT12+\x86\*.*
-	File PPT12+\amd64\*.*
+	File PPT12+\*.*
 	
 	DetailPrint "Registering add-in for all installed PowerPoint releases..."
 	

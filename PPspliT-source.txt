@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.5
+'                    |_|                version 1.6
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: January 2012
+' last update: September 2012
 '
 '
 '
@@ -164,6 +164,11 @@ Public splitMouseTriggered As Boolean
 ' The following variables are for internal use only.
 Public cancelStatus As Boolean
 Public slide_number As Integer
+
+
+' Only required for Office 2010 64 bit, as Windows Common Controls are
+' not available
+Public Const maxProgressWidth = 324
 
 '
 ' Hide a paragraph in a text box.
@@ -1742,8 +1747,8 @@ Sub PPspliT_main()
 
     Dim slide_timeline As Sequence
     cancelStatus = False
-    ProgressForm.SlideBar.value = 0
-    ProgressForm.OverallBar.value = 0
+    ProgressForm.SlideBar.Width = 0
+    ProgressForm.OverallBar.Width = 0
     ProgressForm.Show
     
     If ActiveWindow.ViewType <> ppViewSlide And ActiveWindow.ViewType <> ppViewNormal Then
@@ -1875,7 +1880,7 @@ Sub PPspliT_main()
                     anims_percentage = Int(processed_anims / tot_anims * 100)
                     
                     ProgressForm.SlideLabel = Str$(anims_percentage) + " %"
-                    ProgressForm.SlideBar.value = anims_percentage
+                    ProgressForm.SlideBar.Width = anims_percentage / 100 * maxProgressWidth
                     ProgressForm.Repaint
                     DoEvents
                     If cancelStatus Then
@@ -1906,9 +1911,9 @@ Sub PPspliT_main()
         
         overall_percentage = Int((actual_slide - 1) / orig_tot_slides * 100)
         ProgressForm.OverallLabel = Str$(overall_percentage) + " %"
-        ProgressForm.OverallBar = overall_percentage
+        ProgressForm.OverallBar.Width = overall_percentage / 100 * maxProgressWidth
         ProgressForm.SlideLabel = ""
-        ProgressForm.SlideBar = 0
+        ProgressForm.SlideBar.Width = 0
         ProgressForm.Repaint
         DoEvents
         If cancelStatus Then

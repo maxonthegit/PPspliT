@@ -1,3 +1,8 @@
+1.6 (Sep 2012)
+- Removed the progress bar from the progress form. This solves problems
+  with missing Microsoft Form controls and relaxes architecture
+  dependency.
+
 1.5 (Jan 2012)
 - Fixed a small regression.
   There is a special case when for a text box there are separate animations
