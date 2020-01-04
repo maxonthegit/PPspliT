@@ -1,0 +1,11 @@
+This package contains a PowerPoint add-in that splits animation effects into different slides.
+
+The add-in is the result of the entertaining time of a VBA enthusiast, not a professional developer.
+As such, no warranty of any kind is provided on the operation of the add-in, including, but not limited to, damage to your presentations or to your system.
+
+Several tests have been performed before releasing this tool and installation, usage, and removal have proven harmless on my setup, but you should be aware that no such guarantee applies to your system.
+
+You are free to use this add-in in whatever context you like to, and redistribution is also encouraged.
+If you like, drop me a line so that I can collect some feedback on the current utilization of the tool.
+
+http://www.dia.uniroma3.it/~rimondin/

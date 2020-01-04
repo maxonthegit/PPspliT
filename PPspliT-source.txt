@@ -1,0 +1,1417 @@
+'
+'
+'    _____  _____           _ _ _______
+'   |  __ \|  __ \         | (_)__   __|
+'   | |__) | |__) |__ _ __ | |_   | |
+'   |  ___/|  ___/ __| '_ \| | |  | |
+'   | |    | |   \__ \ |_) | | |  | |
+'   |_|    |_|   |___/ .__/|_|_|  |_|
+'                    | |
+'                    |_|                version 1.0
+'
+' written by Massimo Rimondini in November 2009
+'
+'
+'
+' PPspliT is a PowerPoint add-in that automatically splits animation effects
+' into different slides. The most practical use is to produce PDF files of
+' slides that contain several overlapping shapes that are supposed to appear
+' one after the other.
+
+' WARNING: running the add-in will modify your presentation. Even though it is
+' generally possible to revert the changes using the undo feature (Ctrl+Z), it
+' is strongly advised to work on a copy of your original presentation. I assume
+' no responsibility if your slideshow is transformed into a senseless pile of
+' debris. :-)
+
+' USAGE: Simply click on the "Split animations" button of the PPspliT toolbar and
+' there you go. Using the appropriate button on the same toolbar, you can choose
+' to split animation effects that are triggered by a mouse click (most common
+' usage) or just every animation effect (this may be slow).
+
+' Note that it may take a while for the processing to complete. If
+' you are wondering 1) why so much code, and 2) why so long a time to split the
+' animations, I can give some starting points for your consideration:
+' * PowerPoint applies slideshow effects to rasterized versions of the shapes.
+' Instead, here I need to re-implement the same effects on the original shape
+' objects.
+' * Visual Basic for Applications has some sparse bugs here and there, which allow
+' limited or no access to shape properties. I need to work these around to my best.
+' * Effects on text boxes are especially tricky to apply, because text boxes may
+' have the text auto-fit feature enabled. This is very important to consider, because
+' paragraphs that have not appeared yet still need to consume room in the text box,
+' or the auto-fit will mess up text alignment. I couldn't find an always-working
+' way to map the fitted font size on an actual font size, therefore this has been
+' implemented with some workarounds.
+' * Each animation step requires creating a new slide, which is unavoidably time
+' consuming.
+' * Shape properties (e.g., depth, text attributes, etc.) must be matched between
+' different slides. Due to the smart paste features of PowerPoint, a simple
+' copy&paste cycle is not always enough to this purpose.
+' * For each slide, all the shapes that are supposed to appear later on by means
+' of an entry effect must be preliminarly removed.
+'
+' If you are satisfied with the above explanation, you may also be interested in
+' a list of features of this add-in.
+'
+'   __
+'  / _| ___  __ _| |_ _   _ _ __ ___  ___
+' | |_ / _ \/ _` | __| | | | '__/ _ \/ __|
+' |  _|  __/ (_| | |_| |_| | | |  __/\__ \
+' |_|  \___|\__,_|\__|\__,_|_|  \___||___/
+'
+' - Supports all entry, emphasis, exit, and motion path effects (with some caveats, see
+' below).
+'
+' - Can operate on a range of selected slides or on the whole presentation, if no
+' slides are selected.
+'
+' - Supports rewound-after-the-end and auto-reverse effects, reversed motion
+' paths, and hide-on-next-click effects.
+'
+'
+'
+' DOES NOT, and probably will never SUPPORT:
+'
+' - Shape dimming after playing an effect.
+'
+' - Effects triggered by mouse clicks on a specific shape.
+'
+' - The shaking and blinking emphasis effects, due to a PowerPoint bug. :-(
+'
+' - Duration for emphasis effects (e.g., until next click or until the end of
+' the slide). All emphasis effects last until the end of the slide.
+'
+' - Accurate rendering of color effects: they do not perfectly match
+' PowerPoint 's behavior (which is hard to reverse engineer) but still
+' provide an acceptable emphasis effect.
+'
+' - Emphasis and motion effects that apply to a single text paragraph instead of
+' a whole shape. In general, all those effects whose rendering requires separation
+' of the text frame from its parent shape are unlikely to be supported.
+'
+' - Accurate alignment of shapes in a group. This is hardly obtainable, as it
+' depends on PowerPoint's copy&paste behavior and in the affected cases it can
+' also be experienced with a manual copy&paste operation.
+'
+' - Accurate proportions in font scaling for grow/shrinking emphasis effects.
+' This would only be possible by working with a rasterized version of the affected.
+' The best I can do for now is to apply a proportional font scaling (i.e., a
+' bare modification of the font size) that is a good compromise between the horizontal
+' and the vertical growth/shrink.
+'
+' - Accurate processing of emphasis effects affecting fill/line colors. I still
+' couldn 't track down why sometimes color information in effects that are still
+' to be processed gets messed up before reaching those effects.
+'
+' - Adjusting of the auto-fit property for text frames. This is due to some limits
+' in the interface that PowerPoint offers for that property (in PPT<2007 it is
+' totally absent, while in PPT 2007 it seems to work fairly well).
+'
+' - Everything else I am not aware of. ;-)
+'
+'
+'
+' Just in case you are curious:
+' - The additional tab in Office 2007 has been added using the Office 2007
+' Custom UI editor.
+' - The ASCII art text above has been rendered using figlet.
+'
+'
+'
+'
+'
+'
+'
+'_______________________________________________________________________________
+'###############################################################################
+'###############################################################################
+'###############################################################################
+'###############################################################################
+'###############################################################################
+'###############################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+' This global variable indicates whether animations should be split
+' at each mouse-triggered event. If set to false, a separate slide is
+' created for each and every animation.
+Public splitMouseTriggered As Boolean
+
+' The following variables are for internal use only.
+Public cancelStatus As Boolean
+Public slide_number As Integer
+
+'
+' Hide a paragraph in a text box.
+' Arguments are the shape containing the text frame and the index of
+' the paragraph to be hidden. The subroutine takes care of preserving
+' the space occupied by the paragraph, so that a text frame with
+' auto-fit enabled will still be rendered accurately.
+'
+Private Sub clearParagraph(sh As Shape, par)
+    If sh.TextFrame.TextRange.Paragraphs(par).Lines.Count > 1 Then
+        ' This is a word wrapped or multi-line paragraph: turn every
+        ' word wrap into a real new line. This is required because the
+        ' paragraph contents will be soon replaced with spaces, which
+        ' have a different width than original characters, can therefore
+        ' mess up word wrapping, hence the number of lines of this paragraph,
+        ' hence the rendering of any following paragraphs.
+        For I = 2 To sh.TextFrame.TextRange.Paragraphs(par).Lines.Count
+            If Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters.Count)) <> 11 _
+                And Asc(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters(sh.TextFrame.TextRange.Paragraphs(par).Lines(I - 1).Characters.Count)) <> 13 Then
+                sh.TextFrame.TextRange.Paragraphs(par).Lines(I).Characters(1).InsertBefore Chr$(11)
+            End If
+        Next I
+    End If
+    Set p = sh.TextFrame.TextRange.Paragraphs(par)
+    I = 1
+    While I <= p.Characters.Count
+        ' Replace paragraph contents with spaces. This is the best and
+        ' most compatible way I found to "hide" a paragraph while keeping
+        ' its original space occupied.
+        If Asc(p.Characters(I)) <> 13 And Asc(p.Characters(I)) <> 11 Then
+            p.Characters(I) = " "
+        End If
+        I = I + 1
+    Wend
+    ' Set bullet symbol too to " " (160 is the Unicode value)
+    p.ParagraphFormat.Bullet.Character = 160
+End Sub
+
+'
+' Copies the contents of p2 into p1.
+' This is used to restore a previously hidden paragraph.
+'
+Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
+    If Asc(p2.Characters(p2.Characters.Count)) <> 13 Then
+        ' This paragraph does not end with a new line (most
+        ' likely because it is the last paragraph in the text
+        ' frame). Here I add it (with no consequences on text
+        ' rendering) because I can get all the formatting
+        ' attributes of a paragraph only if it ends with a new
+        ' line (this is PowerPoint magic...)
+        p2.Characters.InsertAfter Chr$(13)
+    End If
+    ' Apply contents and formatting from the original paragraph
+    p2.Copy
+    p1.Paste
+    ' Restore bullet formatting. Since there seems to be no
+    ' way to get the currently used image for a bullet, care
+    ' must be taken in updating the bullet attributes only if
+    ' required, otherwise the applied image may be messed up
+    ' and I may be unable to restore it.
+    If p1.ParagraphFormat.Bullet.Type <> p2.ParagraphFormat.Bullet.Type Then
+        p1.ParagraphFormat.Bullet.Type = p2.ParagraphFormat.Bullet.Type
+    End If
+    If p1.ParagraphFormat.Bullet.StartValue <> p2.ParagraphFormat.Bullet.StartValue Then
+        p1.ParagraphFormat.Bullet.StartValue = p2.ParagraphFormat.Bullet.StartValue
+    End If
+    If p2.ParagraphFormat.Bullet.Type = ppBulletNumbered And p1.ParagraphFormat.Bullet.Style <> p2.ParagraphFormat.Bullet.Style Then
+        p1.ParagraphFormat.Bullet.Style = p2.ParagraphFormat.Bullet.Style
+    End If
+    ' It's not over yet.
+    ' Paste often acts in an "intelligent" way, by cutting away
+    ' apparently useless spaces and other stuff. Here I need a
+    ' really accurate paste, which preserves all the characters,
+    ' therefore I overwrite (or enrich) the set of previously
+    ' pasted characters. Overwriting the characters one by one
+    ' ensures that the rest of formatting is left untouched, but
+    ' here I may still be adding new text (e.g., new spaces), to
+    ' which formatting must be applied. This is the reason of the
+    ' call to copyFontAttributes.
+    For I = 1 To p2.Characters.Count
+        p1.Characters(I) = p2.Characters(I)
+        copyFontAttributes p1.Characters(I).Font, p2.Characters(I).Font
+    Next I
+End Sub
+
+'
+' Copies fundamental font attributes from f2 to f1.
+'
+Private Sub copyFontAttributes(f1 As Font, f2 As Font)
+    f1.Name = f2.Name
+    f1.Size = f2.Size
+    f1.Bold = f2.Bold
+    f1.Italic = f2.Italic
+    f1.Underline = f2.Underline
+    assignColor f1.color, f2.color
+End Sub
+
+'
+' This subroutine applies the ZOrder (depth) of shapes in s2 to shapes in s1.
+' Corresponding shapes in s1 and in s2 are different objects, therefore, in order
+' to be matched, shape IDs must have been copied to the AlternativeText in advance
+' by using the copyShapeIds subroutine.
+' Note: the algorithm used to sort shapes in s2 by increasing ZOrder could be
+' improved.
+'
+Private Sub matchZOrder(s1 As Slide, s2 As Slide)
+    Dim sortedShapes(255) As Shape
+    ProgressForm.infoLabel = "Matching shape Z order..."
+    ProgressForm.Repaint
+    zThreshold = 0
+    j = 1
+    For I = 1 To s2.Shapes.Count
+        minZ = 65536
+        ' Find shape in s2 with minimum ZOrder greater than zThreshold
+        For Each sh2 In s2.Shapes
+            ' Inequalities are strict because there should be no
+            ' two shapes with the same ZOrder
+            If sh2.ZOrderPosition < minZ And sh2.ZOrderPosition > zThreshold Then
+                minZ = sh2.ZOrderPosition
+                minZshapeId = sh2.AlternativeText
+            End If
+        Next sh2
+        zThreshold = minZ
+        shapeIdInS1 = findShape(s1, minZshapeId)
+        If shapeIdInS1 > 0 Then
+            ' The same shape exists also in s1: add the shape to the array of sorted shapes
+            Set sortedShapes(j) = s1.Shapes(shapeIdInS1)
+            j = j + 1
+        End If
+    Next I
+    
+    ' Bring to front shapes in s1 by increasing values of ZOrder
+    For I = 1 To j - 1
+        sortedShapes(I).ZOrder msoBringToFront
+    Next I
+    ProgressForm.infoLabel = ""
+    ProgressForm.Repaint
+End Sub
+
+
+'
+' This subroutine deletes a shape from a slide. If the shape is a textbox
+' and its paragraphs are animated independently from each other, then only
+' the affected paragraph will be deleted. It takes as input the affected
+' shape, a timeline and the index of the effect to be removed from the timeline.
+' The returned value is true if and only if the function also deleted the
+' effect (besides the shape or paragraph).
+'
+Private Function deleteShape(sh As Shape, theTimeline As Sequence, effectId)
+    theParagraph = -1
+    On Error Resume Next
+    ' The following assignment may fail because the Paragraph property does not
+    ' exist at all for those effects that are applied to shapes instead of text.
+    ' But, was this truly expected by design? :-?
+    theParagraph = theTimeline(effectId).Paragraph
+    On Error GoTo 0
+    If theParagraph > 0 Then
+        ' This appears to be a text paragraph effect
+        oldCount = theTimeline.Count
+        If oldCount > effectId Then
+            ' There are other effects following this one.
+            ' Save the trigger type of the next effect for restoring it later
+            animType = theTimeline(effectId + 1).Timing.TriggerType
+        End If
+        ' Delete (or better, hide) the paragraph
+        clearParagraph sh, theParagraph
+        If theTimeline.Count < oldCount Then
+            ' The removed paragraph was not the last one in the shape, and therefore
+            ' the effect has been automatically removed. Restore the trigger
+            ' type if required
+            If theTimeline.Count >= effectId Then
+                ' Restore the trigger type
+                theTimeline(effectId).Timing.TriggerType = animType
+            End If
+            deleteShape = True
+        Else
+            ' The removed paragraph was the last one in the shape, therefore
+            ' the effect is still there.
+            deleteShape = False
+        End If
+    Else
+        ' Whole shape effect
+        sh.Delete
+        deleteShape = True
+    End If
+End Function
+
+'
+' This subroutine assigns the color in the ColorFormat object
+' col2 to the ColorFormat object col1.
+' Care must be taken in that the color may be specified as an
+' index referring to the slide color scheme or as an RGB value.
+'
+Private Sub assignColor(col1 As ColorFormat, col2 As ColorFormat)
+    If col2.Type <> msoColorTypeRGB Then
+        ' I must protect from invalid assignments of color
+        ' scheme indexes.
+        On Error Resume Next
+        col1.SchemeColor = col2.SchemeColor
+        On Error GoTo 0
+    Else
+        col1.RGB = col2.RGB
+    End If
+End Sub
+
+'
+' This subroutine converts a color value from the RGB space to the
+' HSL space. The result will be put in the last 3 arguments.
+' The procedure is taken from http://en.wikipedia.org/wiki/HSL_and_HSV#Conversion_from_RGB_to_HSL_overview
+'
+Private Sub RGBtoHSL(r, g, b, h, s, l)
+    max = 0: min = 255
+    r = r / 255: g = g / 255: b = b / 255
+    If r > max Then max = r
+    If g > max Then max = g
+    If b > max Then max = b
+    If r < min Then min = r
+    If g < min Then min = g
+    If b < min Then min = b
+    If max = min Then
+        h = 0
+    ElseIf max = r Then
+        h = (60 * (g - b) / (max - min) + 360) Mod 360
+    ElseIf max = g Then
+        h = 60 * (b - r) / (max - min) + 120
+    ElseIf max = b Then
+        h = 60 * (r - g) / (max - min) + 240
+    End If
+    l = (max + min) / 2
+    If max = min Then
+        s = 0
+    ElseIf l <= 1 / 2 Then
+        s = (max - min) / (2 * l)
+    ElseIf l > 1 / 2 Then
+        s = (max - min) / (2 - 2 * l)
+    End If
+End Sub
+
+'
+' This subroutine converts a color value from the HSL space to the
+' RGB space. The result will be put in the last 3 arguments.
+' The procedure is taken from http://en.wikipedia.org/wiki/HSL_and_HSV#Conversion_from_RGB_to_HSL_overview
+'
+Private Sub HSLtoRGB(h, s, l, r, g, b)
+    If l < 1 / 2 Then
+        q = l * (1 + s)
+    Else
+        q = l + s - l * s
+    End If
+    p = 2 * l - q
+    hk = h / 360
+    tr = hk + 1 / 3
+    ' Cannot use the Mod operator here, as it only supports integer arithmetic
+    If tr < 0 Then tr = tr + 1
+    If tr > 1 Then tr = tr - 1
+    tg = hk
+    If tg < 0 Then tg = tg + 1
+    If tg > 1 Then tg = tg - 1
+    tb = hk - 1 / 3
+    If tb < 0 Then tb = tb + 1
+    If tb > 1 Then tb = tb - 1
+
+    If tr < 1 / 6 Then
+        r = p + ((q - p) * 6 * tr)
+    ElseIf tr >= 1 / 6 And tr < 1 / 2 Then
+        r = q
+    ElseIf tr >= 1 / 2 And tr < 2 / 3 Then
+        r = p + ((q - p) * 6 * (2 / 3 - tr))
+    Else
+        r = p
+    End If
+    If tg < 1 / 6 Then
+        g = p + ((q - p) * 6 * tg)
+    ElseIf tg >= 1 / 6 And tg < 1 / 2 Then
+        g = q
+    ElseIf tg >= 1 / 2 And tg < 2 / 3 Then
+        g = p + ((q - p) * 6 * (2 / 3 - tg))
+    Else
+        g = p
+    End If
+    If tb < 1 / 6 Then
+        b = p + ((q - p) * 6 * tb)
+    ElseIf tb >= 1 / 6 And tb < 1 / 2 Then
+        b = q
+    ElseIf tb >= 1 / 2 And tb < 2 / 3 Then
+        b = p + ((q - p) * 6 * (2 / 3 - tb))
+    Else
+        b = p
+    End If
+    r = r * 255: g = g * 255: b = b * 255
+End Sub
+
+'
+' This subroutine converts a color value represented by VBA as a Long
+' integer into its RGB components. The result is put in the last
+' 3 arguments of the subroutine.
+'
+Private Sub colToRGB(col, r, g, b)
+    r = col Mod 256
+    g = (col \ 256) Mod 256
+    b = (col \ 256 \ 256) Mod 256
+End Sub
+
+'
+' This subroutine "rotates" the hue of a given color of the
+' specified angle (in degrees).
+'
+Private Sub rotateColor(col As ColorFormat, rot)
+    colToRGB col.RGB, r, g, b
+    RGBtoHSL r, g, b, h, s, l
+    h = (h + rot) Mod 360
+    HSLtoRGB h, s, l, r, g, b
+    col.RGB = RGB(r, g, b)
+End Sub
+
+'
+' This subroutine alters the lightness of a given color.
+' The amount should be between 0 and 1.
+'
+Private Sub changeLightness(col As ColorFormat, amount)
+    colToRGB col.RGB, r, g, b
+    RGBtoHSL r, g, b, h, s, l
+    l = l + amount
+    If l > 1 Then l = 1
+    If l < 0 Then l = 0
+    HSLtoRGB h, s, l, r, g, b
+    col.RGB = RGB(r, g, b)
+End Sub
+
+'
+' After a motion effect has been applied to a shape, the coordinates
+' of all subsequent motion effects have been moved together with the
+' shape. This subroutine applies a given shift to the arrival
+' coordinates (indeed, arrival coordinates is all I need to update)
+' of all the other motion effects for the same shape. Arguments
+' effectSequence (the sequence of effects applied to the shape) and
+' sh (the affected shape) do not need, and in general do not, refer
+' to the same slide.
+'
+' A motion path is specified in VML. Information about the specification
+' can be found here: http://www.w3.org/TR/NOTE-VML#_Toc416858391
+'
+Private Sub shiftAllMotions(effectSequence As Sequence, sh As Shape, shiftX, shiftY)
+    Dim currentEffect As Effect, lastX As Double, lastY As Double
+    For Each currentEffect In effectSequence
+        ' The following variable is where I will put the reconstructed
+        ' path with updated arrival coordinates
+        motionPathString$ = ""
+        ' Keep in mind that sh is a shape the effect is applied to (therefore
+        ' it comes from a certain slide), while effectSequence is the sequence of effects
+        ' under consideration (which comes from a different slide). Therefore,
+        ' operator "Is" cannot be used to match the shapes whose motion effects
+        ' should be updated.
+        If isPathEffect(currentEffect) And currentEffect.Shape.AlternativeText = sh.AlternativeText Then
+            ' This is a motion effect applied to the shape under consideration
+            motionPathTokens = Split(currentEffect.Behaviors(1).MotionEffect.Path)
+            ' The first character states this is a path motion, therefore I preserve it
+            motionPathString$ = motionPathString$ + Trim(motionPathTokens(0)) + " "
+            If currentEffect.Behaviors(1).Timing.Speed < 0 Then
+                ' The path has been reversed: update origin coordinates instead
+                lastX = Replace(motionPathTokens(1), ".", ",")
+                lastY = Replace(motionPathTokens(2), ".", ",")
+                lastX = lastX + shiftX
+                lastY = lastY + shiftY
+                motionPathString$ = motionPathString$ + Trim(Str$(lastX)) + " " + Trim(Str$(lastY)) + " "
+                ' Append the rest of the motion string
+                For I = 3 To UBound(motionPathTokens)
+                    motionPathString$ = motionPathString$ + motionPathTokens(I) + " "
+                Next I
+            Else
+                ' Update the last two (i.e., arrival) coordinates
+                getLastCoordinates currentEffect.Behaviors(1).MotionEffect.Path, lastX, lastY, lastToken
+                lastX = lastX + shiftX
+                lastY = lastY + shiftY
+                ' Copy everything but the last two coordinates from the original
+                ' motion string
+                For I = 0 To lastToken
+                    motionPathString$ = motionPathString$ + motionPathTokens(I) + " "
+                Next I
+                ' Append the modified coordinates
+                motionPathString$ = motionPathString$ + Trim(Str$(lastX)) + " " + Trim(Str$(lastY)) + " "
+            End If
+            ' Assign the new path
+            currentEffect.Behaviors(1).MotionEffect.Path = motionPathString$
+        End If
+    Next currentEffect
+End Sub
+
+'
+' This converts an angle from degrees to radians. At the
+' same time, since shape rotation angles are computed in PowerPoint
+' starting from the positive Y semiaxis and going in
+' clockwise direction, it reverses the convention by returning
+' an angle in radiants that starts from the positive X semiaxis
+' and goes counterclockwise.
+'
+Private Function degToRad(degAngle) As Double
+    degToRad = 3.14159265358979 * ((360 - degAngle) Mod 360) / 180
+End Function
+
+'
+' This subroutine gets the last (i.e., arrival) coordinates from
+' a string describing a motion path. Extracted coordinates are put
+' in lastX and lastY, while lastTokenBeforeCoordinates will be
+' updated with the index of the token in pathString$ that precedes
+' the last coordinates.
+'
+Private Sub getLastCoordinates(pathString$, lastX As Double, lastY As Double, lastTokenBeforeCoordinates)
+    pathStringTokens = Split(pathString$)
+    tokenIndex = UBound(pathStringTokens)
+    While tokenIndex > 0
+        If pathStringTokens(tokenIndex) <> "" And _
+            Not (Mid$(pathStringTokens(tokenIndex), 1, 1) >= "A" And _
+            Mid$(pathStringTokens(tokenIndex), 1, 1) <= "Z") Then
+            lastY = Replace(pathStringTokens(tokenIndex), ".", ",")
+            lastX = Replace(pathStringTokens(tokenIndex - 1), ".", ",")
+            lastTokenBeforeCoordinates = tokenIndex - 2
+            Exit Sub
+        End If
+        tokenIndex = tokenIndex - 1
+    Wend
+End Sub
+
+
+'
+' This subroutine does what it says: it applies an emphasis
+' (or motion) effect to a shape. Arguments are: the sequence of
+' effects (which will only be used to update motion path coordinates),
+' the emphasis effect to be applied, and the shape it applies to
+'
+Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
+    On Error GoTo recover
+    If e.EffectType = msoAnimEffectGrowShrink Then
+        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * (e.Behaviors(1).ScaleEffect.ByX / 100 + e.Behaviors(1).ScaleEffect.ByY / 100) / 2
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            ' I am not scaling a bitmap here, therefore I need to
+            ' recompute map X and Y scaling in accordance with the shape
+            ' rotation.
+            rotCos = Cos(degToRad(sh.Rotation))
+            rotSin = Sin(degToRad(sh.Rotation))
+            scaleX = e.Behaviors(1).ScaleEffect.ByX / 100 * Abs(rotCos) + e.Behaviors(1).ScaleEffect.ByY / 100 * Abs(rotSin)
+            scaleY = e.Behaviors(1).ScaleEffect.ByX / 100 * Abs(rotSin) + e.Behaviors(1).ScaleEffect.ByY / 100 * Abs(rotCos)
+            sh.ScaleWidth scaleX, msoFalse, msoScaleFromMiddle
+            sh.ScaleHeight scaleY, msoFalse, msoScaleFromMiddle
+        End If
+    ElseIf e.EffectType = msoAnimEffectChangeFontColor Then
+        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+    ElseIf e.EffectType = msoAnimEffectChangeFillColor Then
+        If sh.Fill.Transparency < 1 Then
+            sh.Fill.Solid
+            assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
+        End If
+    ElseIf e.EffectType = msoAnimEffectChangeFontStyle Then
+        sh.TextFrame.TextRange.Font.Italic = (e.Behaviors(1).SetEffect.To = 1)
+        sh.TextFrame.TextRange.Font.Bold = (e.Behaviors(2).SetEffect.To = 1)
+        sh.TextFrame.TextRange.Font.Underline = (e.Behaviors(3).SetEffect.To = 1)
+    ElseIf e.EffectType = msoAnimEffectTransparency Then
+        ' Potentially bad consequence: objects that are made totally
+        ' transparent cannot have their transparency changed
+        If sh.TextFrame2.TextRange.Font.Fill.Transparency < 1 Then
+            sh.TextFrame2.TextRange.Font.Fill.Transparency = e.EffectParameters.amount
+        End If
+        If sh.TextFrame2.TextRange.Font.Line.Transparency < 1 Then
+            sh.TextFrame2.TextRange.Font.Line.Transparency = e.EffectParameters.amount
+        End If
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Line.Transparency < 1 Then
+                sh.Line.Transparency = e.EffectParameters.amount
+            End If
+            If sh.Fill.Transparency < 1 Then
+                sh.Fill.Transparency = e.EffectParameters.amount
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectChangeFont Then
+        sh.TextFrame.TextRange.Font.Name = e.EffectParameters.FontName
+    ElseIf e.EffectType = msoAnimEffectChangeLineColor Then
+        assignColor sh.Line.ForeColor, e.EffectParameters.Color2
+    ElseIf e.EffectType = msoAnimEffectChangeFontSize Then
+        ' Please leave the /1 alone: it is required for some strange internal
+        ' type conversion, otherwise leading to improper font sizes :-(
+        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * e.Behaviors(1).PropertyEffect.To / 1
+    ElseIf e.EffectType = msoAnimEffectSpin Then
+        ' Rotating just the text is not supported
+        sh.Rotation = e.Behaviors(1).RotationEffect.By
+    ElseIf e.EffectType = msoAnimEffectDesaturate Then
+        With sh.TextFrame.TextRange.Font.color
+            colToRGB .RGB, r, g, b
+            .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
+        End With
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                With sh.Fill.ForeColor
+                    colToRGB .RGB, r, g, b
+                    .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
+                End With
+                With sh.Fill.BackColor
+                    colToRGB .RGB, r, g, b
+                    .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
+                End With
+            End If
+            If sh.Line.Transparency < 1 Then
+                With sh.Line.ForeColor
+                    colToRGB .RGB, r, g, b
+                    .RGB = RGB((r + g + b) / 3, (r + g + b) / 3, (r + g + b) / 3)
+                End With
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectColorWave Or e.EffectType = msoAnimEffectColorBlend Or _
+            e.EffectType = msoAnimEffectBrushOnColor Or e.EffectType = msoAnimEffectTeeter Then
+        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectComplementaryColor2 Then
+        ' PowerPoint computes the complementary color in some other way.
+        ' I feel pretty satisfied with this rotation in the HSL space
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                rotateColor sh.Fill.ForeColor, 180
+            End If
+            If sh.Line.Transparency < 1 Then
+                rotateColor sh.Line.ForeColor, 180
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectVerticalGrow Then
+        ' Font scaling alone is not supported for this effect
+        sh.ScaleHeight 1.5, msoFalse
+        shiftY = sh.Height / 4
+        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+        If sh.Fill.Transparency < 1 Then
+            assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
+        End If
+        sh.Top = sh.Top - shiftY
+    ElseIf e.EffectType = msoAnimEffectLighten Then
+        changeLightness sh.TextFrame.TextRange.Font.color, 0.3
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                changeLightness sh.Fill.ForeColor, 0.3
+            End If
+            If sh.Line.Transparency < 1 Then
+                changeLightness sh.Line.ForeColor, 0.3
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectBrushOnUnderline Then
+        sh.TextFrame.TextRange.Font.Underline = msoTrue
+    ElseIf e.EffectType = msoAnimEffectComplementaryColor Then
+        ' PowerPoint computes the complementary color in some other way.
+        ' I feel pretty satisfied with this rotation in the HSL space
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                rotateColor sh.Fill.ForeColor, 120
+            End If
+            If sh.Line.Transparency < 1 Then
+                rotateColor sh.Line.ForeColor, 120
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectContrastingColor Then
+        ' PowerPoint computes the contrasting color in some other way.
+        ' I feel pretty satisfied with this rotation in the HSL space
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                rotateColor sh.Fill.ForeColor, 90
+            End If
+            If sh.Line.Transparency < 1 Then
+                rotateColor sh.Line.ForeColor, 90
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectBoldFlash Then
+        ' msoAnimEffectBoldFlash is a non-permanent effect
+    ElseIf e.EffectType = msoAnimEffectFlashBulb Then
+        ' msoAnimEffectFlashBulb is a non-permanent effect
+    ElseIf e.EffectType = msoAnimEffectDarken Then
+        changeLightness sh.TextFrame.TextRange.Font.color, -0.3
+        If e.EffectInformation.AnimateBackground Or Not e.Shape.TextFrame.HasText Then
+            If sh.Fill.Transparency < 1 Then
+                changeLightness sh.Fill.ForeColor, -0.3
+            End If
+            If sh.Line.Transparency < 1 Then
+                changeLightness sh.Line.ForeColor, -0.3
+            End If
+        End If
+    ElseIf e.EffectType = msoAnimEffectGrowWithColor Then
+        sh.TextFrame.TextRange.Font.Size = sh.TextFrame.TextRange.Font.Size * 1.5
+        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+        If sh.Fill.Transparency < 1 Then
+            sh.Fill.Solid
+            assignColor sh.Fill.ForeColor, e.EffectParameters.Color2
+        End If
+    ElseIf e.EffectType = msoAnimEffectFlicker Then
+        ' msoAnimEffectFlicker is a non-permanent effect
+    ' *** WARNING: the shaking effect has no associated effecttype (PowerPoint bug :-((( )
+    ElseIf e.EffectType = msoAnimEffectBoldReveal Then
+        sh.TextFrame.TextRange.Font.Bold = msoTrue
+    ElseIf e.EffectType = msoAnimEffectWave Then
+        ' msoAnimEffectWave is a non-permanent effect
+    ElseIf e.EffectType = msoAnimEffectStyleEmphasis Then
+        sh.TextFrame.TextRange.Font.Italic = msoTrue
+        sh.TextFrame.TextRange.Font.Bold = msoTrue
+        sh.TextFrame.TextRange.Font.Underline = msoTrue
+        assignColor sh.TextFrame.TextRange.Font.color, e.EffectParameters.Color2
+    ' *** WARNING: the blinking effect has no associated effecttype (PowerPoint bug :-((( )
+    ElseIf e.EffectType = msoAnimEffectBlast Then
+        ' msoAnimEffectBlast has too vague a behavior to be implemented :-O
+    Else
+        If isEmphasisEffect(e) Then
+            On Error GoTo 0
+            ' Ok, this is neither an emphasis effect nor an entry effect:
+            ' it must be a motion effect
+            motionpath = Split(e.Behaviors(1).MotionEffect.Path)
+            Dim lastX As Double, lastY As Double
+            If e.Behaviors(1).Timing.Speed < 0 Then
+                lastX = Replace(motionpath(1), ".", ",")
+                lastY = Replace(motionpath(2), ".", ",")
+            Else
+                getLastCoordinates e.Behaviors(1).MotionEffect.Path, lastX, lastY, lastToken
+            End If
+            ' Coordinates are expressed in VML (see http://www.w3.org/TR/1998/NOTE-VML-19980513#_Toc416858391)
+            ' as multiples of the slide width/height and are relative to the shape center
+            shapeCenterX = (sh.Left + sh.Width / 2) / ActivePresentation.PageSetup.SlideWidth
+            shapeCenterY = (sh.Top + sh.Height / 2) / ActivePresentation.PageSetup.SlideHeight
+            newX = (shapeCenterX + lastX) * ActivePresentation.PageSetup.SlideWidth
+            newY = (shapeCenterY + lastY) * ActivePresentation.PageSetup.SlideHeight
+            sh.Left = newX - sh.Width / 2
+            sh.Top = newY - sh.Height / 2
+            shiftAllMotions seq, sh, -lastX, -lastY
+        End If
+    End If
+    Exit Sub
+recover:
+    ' Ok, Powerpoint bug again: this is an emphasis effect that
+    ' has no EffectType member. Let's pass it by.
+End Sub
+
+'
+' This function returns true if (and only if) the effect given
+' as argument is a motion (path) effect
+'
+Private Function isPathEffect(e As Effect) As Boolean
+    On Error GoTo pathRecover
+    isPathEffect = False
+    ' The following conditions have been built starting from the page "Powerpoint
+    ' constants" of the VBA documentation.
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPath5PointStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCrescentMoon
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSquare
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTrapezoid
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathHeart
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathOctagon
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPath6PointStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathFootball
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathEqualTriangle
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathParallelogram
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathPentagon
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPath4PointStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPath8PointStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTeardrop
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathPointyStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCurvedSquare
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCurvedX
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathVerticalFigure8
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCurvyStar
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathLoopdeLoop
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathBuzzsaw
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathHorizontalFigure8
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathPeanut
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathFigure8Four
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathNeutron
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSwoosh
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathBean
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathPlus
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathInvertedTriangle
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathInvertedSquare
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathLeft
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTurnRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathArcDown
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathZigzag
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSCurve2
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSineWave
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathBounceLeft
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathDown
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTurnUp
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathArcUp
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathHeartbeat
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSpiralRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathWave
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCurvyLeft
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathDiagonalDownRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTurnDown
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathArcLeft
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathFunnel
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSpring
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathBounceRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSpiralLeft
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathDiagonalUpRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathTurnUpRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathArcRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathSCurve1
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathDecayingWave
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathCurvyRight
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathStairsDown
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathUp
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectPathRight
+
+    ' 0 = msoAnimEffectCustom = Customized path
+    isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectCustom
+    Exit Function
+    
+pathRecover:
+    ' Powerpoint bug: this effect has no EffectType property;
+    ' I cannot either recognize or handle it. At the time of
+    ' writing this code, there were no motion effects affected
+    ' by this problem, therefore this is not a motion effect.
+    isPathEffect = False
+End Function
+
+
+'
+' This function returns true iff the given effect is either
+' an emphasis effect or a motion effect.
+'
+Private Function isEmphasisEffect(e As Effect) As Boolean
+    On Error GoTo recoverIsEmphasis
+    isEmphasisEffect = False
+    ' The following conditions have been built starting from the page "Powerpoint
+    ' constants" of the VBA documentation.
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectGrowShrink
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeFontColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeFillColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeFontStyle
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectTransparency
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeFont
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeLineColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectChangeFontSize
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectSpin
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectDesaturate
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectColorWave
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectComplementaryColor2
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectVerticalGrow
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectLighten
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectColorBlend
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBrushOnUnderline
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBrushOnColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectComplementaryColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectContrastingColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBoldFlash
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectFlashBulb
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectDarken
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectGrowWithColor
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectTeeter
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectFlicker
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBoldReveal
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectWave
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectStyleEmphasis
+    isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBlast
+    
+    isEmphasisEffect = isEmphasisEffect Or isPathEffect(e)
+
+    ' If isEmphasisEffect is true at this point, then I have
+    ' an emphasis or motion effect. But let's really make sure it is not
+    ' an entry/exit effect.
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectAppear
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFly
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectBlinds
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectBox
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectCheckerboard
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectCircle
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectCrawl
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectDiamond
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectDissolve
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFade
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFlashOnce
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectPeek
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectPlus
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectRandomBars
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSpiral
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSplit
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectStretch
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectStrips
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSwivel
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectWedge
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectWheel
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectWipe
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectZoom
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectRandomEffects
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectBoomerang
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectBounce
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectColorReveal
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectCredits
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectEaseIn
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFloat
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectGrowAndTurn
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectLightSpeed
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectPinwheel
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectRiseUp
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSwish
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectThinLine
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectUnfold
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectWhip
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectAscend
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectCenterRevolve
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFadedSwivel
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectDescend
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSling
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectSpinner
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectStretchy
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectZip
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectArcUp
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFadedZoom
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectGlide
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectExpand
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFlip
+    isEmphasisEffect = isEmphasisEffect And e.EffectType <> msoAnimEffectFold
+    Exit Function
+recoverIsEmphasis:
+    ' Powerpoint bug: this effect has no EffectType property;
+    ' I cannot either recognize or handle it. Luckily enough,
+    ' there is no need to process the affected effects because
+    ' they are non-permanent (apart from the color that the
+    ' shaking effect allows to apply to the shape). Here I
+    ' assume that an unrecognizable effect is an emphasis effect.
+    isEmphasisEffect = True
+End Function
+
+'
+' This subroutine deletes all the shapes for which the first
+' effect in the sequence is an entry effect. This is reasonable,
+' because those shapes are expected to appear later on.
+'
+Private Sub purgeFutureShapes(s As Slide)
+    Dim slide_timeline As Sequence
+    Set slide_timeline = s.TimeLine.MainSequence
+    ProgressForm.infoLabel = "Preprocessing slide effects..."
+    ProgressForm.Repaint
+    I = 1: start_deleting_at = 0
+    While I <= slide_timeline.Count And start_deleting_at = 0
+        If slide_timeline(I).Timing.TriggerType <> msoAnimTriggerAfterPrevious And _
+           slide_timeline(I).Timing.TriggerType <> msoAnimTriggerWithPrevious Then
+            ' Start deleting shapes from the next mouse-triggered event.
+            ' Any preceding shapes will be deleted when their effects
+            ' are individually considered
+            start_deleting_at = I
+        End If
+        I = I + 1
+    Wend
+    If start_deleting_at > 0 Then
+        For I = start_deleting_at To s.TimeLine.MainSequence.Count
+            If I > s.TimeLine.MainSequence.Count Then Exit For
+            delete_shape_idx = -1
+            If Not slide_timeline(I).Exit And Not isEmphasisEffect(slide_timeline(I)) Then
+                ' This is an entry effect applied in the future. Likely a candidate
+                ' to justify shape deletion
+                delete_shape_idx = I
+            End If
+            For j = I - 1 To start_deleting_at Step -1
+                If slide_timeline(I).Shape Is slide_timeline(j).Shape And _
+                    (slide_timeline(j).Exit Or isEmphasisEffect(slide_timeline(j))) Then
+                    ' Abort deletion: there is an exit/emphasis effect for the
+                    ' same shape before the entry effect
+                    delete_shape_idx = -1
+                End If
+            Next j
+            If delete_shape_idx > 0 Then
+                ' Delete shapes for which a following entry effect exists
+                If deleteShape(slide_timeline(I).Shape, slide_timeline, delete_shape_idx) Then
+                    I = I - 1
+                End If
+            End If
+        Next I
+    End If
+    ProgressForm.infoLabel = ""
+    ProgressForm.Repaint
+End Sub
+
+'
+' This function returns the sequential number of a shape in s
+' that matches the id, or 0 if no such shape exists. The
+' function relies on the values of the AlternativeText,
+' which must have been set up in advance using the
+' copyShapeIds subroutine.
+'
+Private Function findShape(s As Slide, id)
+    Dim currentShape As Shape
+    I = 1
+    findShape = 0
+    For Each currentShape In s.Shapes
+        If currentShape.AlternativeText = id Then
+            findShape = I
+            Exit Function
+        End If
+        I = I + 1
+    Next currentShape
+End Function
+
+'
+' This subroutine applies to slide s a generic animation effect that is
+' on top of the timeline of seq_slide. At the same time, it also removes
+' the effect from the timeline of seq_slide.
+'
+Private Sub applyEffect(s As Slide, seq_slide As Slide)
+    Dim current_effect As Effect, sh As Shape
+    Set current_effect = seq_slide.TimeLine.MainSequence(1)
+    Set sh = current_effect.Shape
+    If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHide Then
+        ' This effect is set for hiding the shape after the animation, so it
+        ' must be treated equivalently to an exit effect: simply delete the shape
+        If findShape(s, sh.AlternativeText) > 0 Then
+            deleteShape s.Shapes(findShape(s, sh.AlternativeText)), seq_slide.TimeLine.MainSequence, 1
+        End If
+        current_effect.Delete
+    Else
+        If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHideOnNextClick Then
+            ' This effect is set for hiding after the next click:
+            ' insert a new exit animation that will be processed in the following
+            found = False
+            Set tl = seq_slide.TimeLine.MainSequence
+            For I = 2 To tl.Count
+                If tl(I).Timing.TriggerType = msoAnimTriggerOnPageClick Then
+                    tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious, I + 1
+                    tl(I + 1).Exit = msoTrue
+                    found = True
+                    Exit For
+                End If
+            Next I
+            If Not found Then
+                tl.AddEffect current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerOnPageClick, I
+                tl(I).Exit = msoTrue
+            End If
+        End If
+        If current_effect.Timing.RewindAtEnd Then
+            ' A rewound-after-the-end animation has no effect (unless it is set for
+            ' being hidden after the animation, which has already been checked)
+            current_effect.Delete
+        Else
+            If current_effect.Exit Then
+                ' This is an exit effect: simply delete the shape (or the text
+                ' paragraph) from the next slide
+                If findShape(s, sh.AlternativeText) > 0 Then
+                    deleteShape s.Shapes(findShape(s, sh.AlternativeText)), seq_slide.TimeLine.MainSequence, 1
+                End If
+                current_effect.Delete
+            Else
+                If isEmphasisEffect(current_effect) Then
+                    ' This is an emphasis (or motion) effect. Note that an autoreversed emphasis
+                    ' effect has no overall effect. Also, an emphasis effect can never be applied
+                    ' to a single text paragraph
+                    If Not current_effect.Timing.AutoReverse Then
+                        If findShape(s, sh.AlternativeText) > 0 Then
+                            applyEmphasisEffect seq_slide.TimeLine.MainSequence, seq_slide.TimeLine.MainSequence(1), s.Shapes(findShape(s, sh.AlternativeText))
+                        End If
+                    End If
+                    current_effect.Delete
+                Else
+                    ' This is an entry effect.
+                    If Not findShape(s, sh.AlternativeText) > 0 Then
+                        ' The shape is not already present
+                        sh.Copy
+                        s.Shapes.Paste
+                        Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                        ' Coordinates of the pasted shape are sometimes
+                        ' automatically adjusted (for example if the shape
+                        ' overlaps with another one)
+                        newShape.Left = sh.Left
+                        newShape.Top = sh.Top
+                        par = -1
+                        On Error Resume Next
+                        ' The following assignment may raise an error for missing
+                        ' Paragraph property
+                        par = current_effect.Paragraph
+                        On Error GoTo 0
+                        If par > 0 Then
+                            ' Remove all the paragraphs that are supposed to appear later
+                            For parIdx = 1 To newShape.TextFrame.TextRange.Paragraphs.Count
+                                If parIdx <> par Then
+                                    foundEntryAnim = False
+                                    For k = 1 To seq_slide.TimeLine.MainSequence.Count
+                                        If seq_slide.TimeLine.MainSequence(k).Shape Is sh And Not isEmphasisEffect(seq_slide.TimeLine.MainSequence(k)) _
+                                            And Not seq_slide.TimeLine.MainSequence(k).Exit Then
+                                            On Error Resume Next
+                                            If seq_slide.TimeLine.MainSequence(k).Paragraph = parIdx Then
+                                                foundEntryAnim = True
+                                            End If
+                                            On Error GoTo 0
+                                        End If
+                                    Next k
+                                    If foundEntryAnim Then
+                                        clearParagraph s.Shapes(findShape(s, sh.AlternativeText)), parIdx
+                                    End If
+                                End If
+                            Next parIdx
+                        End If
+                        ' Sometimes text auto-fitting does not seem to act
+                        ' properly: this is an attempt to "awaken" it by
+                        ' notifying of a change in the shape size
+                        newShape.Width = sh.Width
+                        newShape.Height = sh.Height
+                    Else
+                        ' The shape is already present: I only need to add a
+                        ' paragraph to it, if required.
+                        par = -1
+                        ' The following assignment may raise an error for missing
+                        ' Paragraph property
+                        On Error Resume Next
+                        par = current_effect.Paragraph
+                        On Error GoTo 0
+                        If par > 0 Then
+                            copyParagraph s.Shapes(findShape(s, sh.AlternativeText)).TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
+                            Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                            ' Sometimes text auto-fitting does not seem to act
+                            ' properly: this is an attempt to "awaken" it by
+                            ' notifying of a change in the shape size
+                            newShape.Width = sh.Width
+                            newShape.Height = sh.Height
+                        End If
+                    End If
+                    current_effect.Delete
+                End If
+            End If
+        End If
+    End If
+End Sub
+
+'
+' This subroutine removes all the animation effects from a slide. Useful
+' to leave slides clean after processing
+'
+Private Sub purgeEffects(s As Slide)
+    For I = 1 To s.TimeLine.MainSequence.Count
+        s.TimeLine.MainSequence(1).Delete
+    Next I
+    s.SlideShowTransition.EntryEffect = ppEffectAppear
+End Sub
+
+'
+' This function copies shape Ids to the AlternativeText field. This is
+' very useful to match different instances of the same shape in different
+' slides, as the copy-and-paste process used to implement entry effects
+' discards the shape id.
+'
+Private Sub copyShapeIds(s As Slide)
+    Dim sh As Shape
+    For Each sh In s.Shapes
+        sh.AlternativeText = Str$(sh.id)
+    Next sh
+End Sub
+
+Sub PPspliT_main()
+    On Error GoTo error_handler
+
+    If Application.Presentations.Count = 0 Then
+        Exit Sub
+    End If
+
+    Dim slide_timeline As Sequence
+    cancelStatus = False
+    ProgressForm.SlideBar.value = 0
+    ProgressForm.OverallBar.value = 0
+    ProgressForm.Show
+    
+    If ActiveWindow.ViewType <> ppViewSlide And ActiveWindow.ViewType <> ppViewNormal Then
+        ActiveWindow.ViewType = ppViewNormal
+    End If
+    
+    ' Non-contiguous ranges of slides are NOT supported
+    If ActiveWindow.Selection.Type = ppSelectionSlides Then
+        slide_number = ActiveWindow.Selection.SlideRange(1).SlideIndex
+        tot_slides = ActiveWindow.Selection.SlideRange(ActiveWindow.Selection.SlideRange.Count).SlideIndex
+        If slide_number > tot_slides Then
+            tmp = slide_number
+            slide_number = tot_slides
+            tot_slides = tmp
+        End If
+    Else
+        slide_number = 1
+        tot_slides = ActivePresentation.Slides.Count
+    End If
+    
+    ' Since lots of duplicate slides will be created in the process, I must
+    ' keep note of:
+    ' orig_tot_slides, which is the total number of slides in the selected
+    ' range before creating duplicate slides
+    orig_tot_slides = tot_slides
+    ' actual_slide, which is the number of slides in the originally selected range
+    ' that have been processed until now
+    actual_slide = slide_number
+    '
+    ' Iterate over all the slides in the presentation
+    '
+    While actual_slide <= tot_slides
+        additional_slide_present = False
+        ProgressForm.SlideNumber = "Slide " + Str$(actual_slide) + " of " + Str$(orig_tot_slides)
+        alreadyPurged = False
+        If ActivePresentation.Slides(slide_number).TimeLine.MainSequence.Count > 0 Then
+            '
+            ' There are effects to be processed in the current slide
+            '
+            
+            copyShapeIds ActivePresentation.Slides(slide_number)
+            
+            '
+            ' First of all, take care of effects that start without a click
+            ' (and, therefore, have an immediate effect on the rendered slide)
+            '
+            cont = (ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
+                    Or ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Timing.TriggerType = msoAnimTriggerAfterPrevious)
+            If cont And splitMouseTriggered Then
+                ' Keep a copy of the original slide, which I will use to track the animation
+                ' sequence. I always proceed in this way: I carry the original slide
+                ' unaltered and grab the list of effects to be applied from it, while
+                ' shapes are actually modified on copies of that original slide
+                ActivePresentation.Slides(slide_number).Duplicate
+                ' Remember to remove the duplicated slide later on
+                additional_slide_present = True
+                Set slide_timeline = ActivePresentation.Slides(slide_number + 1).TimeLine.MainSequence
+                ' Remove all the shapes that will appear after a future entry effect
+                purgeFutureShapes ActivePresentation.Slides(slide_number)
+                purgeEffects ActivePresentation.Slides(slide_number)
+                alreadyPurged = True
+            End If
+            While cont And splitMouseTriggered
+                ' Actually, there are animations that start without a click
+                applyEffect ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
+                ' Some effects have disappeared: check whether I still have
+                ' effects that start without a click
+                If slide_timeline.Count = 0 Then
+                    cont = False
+                Else
+                    ' Go on until I encounter a mouse-triggered effect
+                    cont = (slide_timeline(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
+                            Or slide_timeline(1).Timing.TriggerType = msoAnimTriggerAfterPrevious)
+                End If
+            Wend
+            If additional_slide_present Then
+                ' Match the Z order of shapes between the original slide and its
+                ' duplicate.
+                matchZOrder ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
+            End If
+        Else
+            actual_slide = actual_slide + 1
+        End If
+            
+        '
+        ' Now, take care of mouse-triggered effects
+        '
+        ' Get the number of animation effects from the right slide.
+        If additional_slide_present Then
+            tot_anims = ActivePresentation.Slides(slide_number + 1).TimeLine.MainSequence.Count
+        Else
+            tot_anims = ActivePresentation.Slides(slide_number).TimeLine.MainSequence.Count
+        End If
+        If tot_anims > 0 Then
+            processed_anims = 0
+            If Not alreadyPurged Then
+                ActivePresentation.Slides(slide_number).Duplicate
+                purgeFutureShapes ActivePresentation.Slides(slide_number)
+                purgeEffects ActivePresentation.Slides(slide_number)
+                alreadyPurged = True
+                
+'                For i = 1 To ActivePresentation.Slides(slide_number).TimeLine.MainSequence.Count
+'                    ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Delete
+'                Next i
+            End If
+            ActivePresentation.Slides(slide_number).Duplicate
+            slide_number = slide_number + 1
+            While ActivePresentation.Slides(slide_number + 1).TimeLine.MainSequence.Count > 0
+                ' Mouse-triggered effects need to be split on two different slides
+                ' Now iterate over all non-mouse-triggered effects starting with the current one
+                cont = True
+                While cont
+                    ' The applyEffect method eats an animation effect for each call
+                    applyEffect ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
+                    
+                    '
+                    ' Ok, the current effect has been processed. Keep staying on the same slide
+                    ' as long as there are other non-mouse-triggered effects.
+                    '
+                    Set slide_timeline = ActivePresentation.Slides(slide_number + 1).TimeLine.MainSequence
+                    If slide_timeline.Count = 0 Then
+                        ' No more effects to process (this must be checked on the next slide,
+                        ' as several effects and shaped may have been removed in the current
+                        ' one)
+                        cont = False
+                    Else
+                        cont = (slide_timeline(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
+                                Or slide_timeline(1).Timing.TriggerType = msoAnimTriggerAfterPrevious) And splitMouseTriggered
+                    End If
+                    processed_anims = processed_anims + 1
+                    anims_percentage = Int(processed_anims / tot_anims * 100)
+                    
+                    ProgressForm.SlideLabel = Str$(anims_percentage) + " %"
+                    ProgressForm.SlideBar.value = anims_percentage
+                    ProgressForm.Repaint
+                    DoEvents
+                    If cancelStatus Then
+                        Unload ProgressForm
+                        Exit Sub
+                    End If
+                Wend
+                matchZOrder ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
+                If slide_timeline.Count > 0 Then
+                    ActivePresentation.Slides(slide_number).Duplicate
+                    purgeEffects ActivePresentation.Slides(slide_number)
+                    slide_number = slide_number + 1
+                End If
+            Wend
+            ActivePresentation.Slides(slide_number + 1).Delete
+            additional_slide_present = False
+            ' All the animations for the current slide have been processed
+            purgeEffects ActivePresentation.Slides(slide_number)
+            actual_slide = actual_slide + 1
+        End If
+        If additional_slide_present Then
+            ActivePresentation.Slides(slide_number + 1).Delete
+            purgeEffects ActivePresentation.Slides(slide_number)
+            actual_slide = actual_slide + 1
+        End If
+        
+        slide_number = slide_number + 1
+        
+        overall_percentage = Int((actual_slide - 1) / orig_tot_slides * 100)
+        ProgressForm.OverallLabel = Str$(overall_percentage) + " %"
+        ProgressForm.OverallBar = overall_percentage
+        ProgressForm.SlideLabel = ""
+        ProgressForm.SlideBar = 0
+        ProgressForm.Repaint
+        DoEvents
+        If cancelStatus Then
+            Unload ProgressForm
+            Exit Sub
+        End If
+    Wend
+    
+    Unload ProgressForm
+    Exit Sub
+    
+error_handler:
+    resp = MsgBox("Sorry, but despite the efforts in foreseeing and catching possible anomalies, I have incurred an unrecoverable error." & vbCrLf & _
+                  "Error number: " & Str$(Err.Number) & vbCrLf & _
+                  "Error description: " & Err.Description & vbCrLf & _
+                  "Slide number: " & slide_number & vbCrLf & "Would you like to try continuing anyway (discouraged)?", vbYesNo, "Fatal error")
+    If resp = vbYes Then
+        Resume Next
+    Else
+        On Error GoTo 0
+        Resume
+    End If
+End Sub
+
+' The "Split on click-triggered animations" check box
+' has been clicked
+Sub CTcBoxChanged(button As Iribboncontrol, pressed As Boolean)
+    splitMouseTriggered = pressed
+End Sub
+
+' The "Split on click-triggered animations" check box
+' is checked by default
+Sub CTcBoxDefault(button As Iribboncontrol, ByRef state)
+    state = True
+    splitMouseTriggered = True
+End Sub
+
