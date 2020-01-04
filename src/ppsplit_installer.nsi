@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.2"
+	StrCpy $PPSPLIT_RELEASE "1.3"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -134,14 +134,20 @@ ${un}Loop:
 	; Only the first 2 characters of the Office release are relevant
 	StrCpy $SHORT_OFFICE_RELEASE $CURRENT_OFFICE_RELEASE 2
 	StrCpy $1 "unknown release"
-	StrCmp "10" $SHORT_OFFICE_RELEASE 0 +2
+	; Assume we could not recognize the Office release until we actually do
+	StrCpy $ERRORS "yes"
+	StrCmp "10" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office XP"	
-	StrCmp "11" $SHORT_OFFICE_RELEASE 0 +2
+	StrCpy $ERRORS ""
+	StrCmp "11" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2003"
-	StrCmp "12" $SHORT_OFFICE_RELEASE 0 +2
+	StrCpy $ERRORS ""
+	StrCmp "12" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2007"
-	StrCmp "14" $SHORT_OFFICE_RELEASE 0 +2
+	StrCpy $ERRORS ""
+	StrCmp "14" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2010"
+	StrCpy $ERRORS ""
 	
 	${If} $3 = 0
 		; First iteration: 32-bit
