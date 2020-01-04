@@ -7,7 +7,7 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.9
+'                    |_|                version 1.10
 '
 ' first written by Massimo Rimondini in November 2009
 ' last update: May 2013
@@ -124,6 +124,9 @@
 ' a slide layout. The reason is that those shapes are turned into placeholders
 ' (instead of disappearing) when one attempts to delete them.
 '
+' - Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
+' <=2003 using the Microsoft Office Compatibility Pack.
+'
 ' - Everything else I am not aware of. ;-)
 '
 '
@@ -164,19 +167,19 @@
 ' This global variable indicates whether slide numbers should be kept consistent with
 ' the original set of slides. For example, if slide 6 is split into 3 slides, then
 ' all those 3 slides will be numbered 6.
-Public adjustSlideNumbers As Boolean
+Public doNotAdjustSlideNumbers As Boolean
 
 ' This global variable indicates whether animations should be split
 ' at each mouse-triggered event. If set to false, a separate slide is
 ' created for each and every animation.
-Public splitMouseTriggered As Boolean
+Public doNotSplitMouseTriggered As Boolean
 
 ' The following variables are for internal use only.
 Public cancelStatus As Boolean
 Public slide_number As Integer
 
 
-' Only required for Office 2010 64 bit, as Windows Common Controls are
+' Required at least for Office 2010 64 bit, as Windows Common Controls are
 ' not available
 Public Const maxProgressWidth = 324
 
@@ -1831,15 +1834,18 @@ Sub PPspliT_main()
         ActiveWindow.ViewType = ppViewNormal
     End If
     
-    ' Non-contiguous ranges of slides are NOT supported
+    ' Non-contiguous ranges of slides are NOT supported: they are assumed to
+    ' start at the lowest numbered selected slide and end at the highest numbered
+    ' selected slide.
     If ActiveWindow.Selection.Type = ppSelectionSlides Then
-        slide_number = ActiveWindow.Selection.SlideRange(1).SlideIndex
-        tot_slides = ActiveWindow.Selection.SlideRange(ActiveWindow.Selection.SlideRange.Count).SlideIndex
-        If slide_number > tot_slides Then
-            tmp = slide_number
-            slide_number = tot_slides
-            tot_slides = tmp
-        End If
+        min_slide_index = 32767
+        max_slide_index = 0
+        For Each s In ActiveWindow.Selection.SlideRange
+            If s.SlideIndex < min_slide_index Then min_slide_index = s.SlideIndex
+            If s.SlideIndex > max_slide_index Then max_slide_index = s.SlideIndex
+        Next s
+        slide_number = min_slide_index
+        tot_slides = max_slide_index
     Else
         slide_number = 1
         tot_slides = ActivePresentation.Slides.Count
@@ -1847,7 +1853,7 @@ Sub PPspliT_main()
     
     ' Bake slide numbers (and other footers that may contain slide numbers) into the
     ' presentation, if requested.
-    If adjustSlideNumbers Then bakeSlideNumbers slide_number, tot_slides, maxProgressWidth
+    If Not doNotAdjustSlideNumbers Then bakeSlideNumbers slide_number, tot_slides, maxProgressWidth
     
     ' Since lots of duplicate slides will be created in the process, I must
     ' keep note of:
@@ -1877,7 +1883,7 @@ Sub PPspliT_main()
             '
             cont = (ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
                     Or ActivePresentation.Slides(slide_number).TimeLine.MainSequence(1).Timing.TriggerType = msoAnimTriggerAfterPrevious)
-            If cont And splitMouseTriggered Then
+            If cont And Not doNotSplitMouseTriggered Then
                 ' Keep a copy of the original slide, which I will use to track the animation
                 ' sequence. I always proceed in this way: I carry the original slide
                 ' unaltered and grab the list of effects to be applied from it, while
@@ -1891,7 +1897,7 @@ Sub PPspliT_main()
                 purgeEffects ActivePresentation.Slides(slide_number)
                 alreadyPurged = True
             End If
-            While cont And splitMouseTriggered
+            While cont And Not doNotSplitMouseTriggered
                 ' Actually, there are animations that start without a click
                 applyEffect ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1)
                 ' Some effects have disappeared: check whether I still have
@@ -1954,7 +1960,7 @@ Sub PPspliT_main()
                         cont = False
                     Else
                         cont = (slide_timeline(1).Timing.TriggerType = msoAnimTriggerWithPrevious _
-                                Or slide_timeline(1).Timing.TriggerType = msoAnimTriggerAfterPrevious) And splitMouseTriggered
+                                Or slide_timeline(1).Timing.TriggerType = msoAnimTriggerAfterPrevious) And Not doNotSplitMouseTriggered
                     End If
                     processed_anims = processed_anims + 1 - addedEffects
                     anims_percentage = Int(processed_anims / tot_anims * 100)
@@ -2021,27 +2027,27 @@ End Sub
 ' The "Adjust slide numbers" check box
 ' has been clicked
 Sub ASNcBoxChanged(button As Iribboncontrol, pressed As Boolean)
-    adjustSlideNumbers = pressed
+    doNotAdjustSlideNumbers = Not pressed
 End Sub
 
 ' The "Adjust slide numbers" check box
 ' is checked by default
 Sub ASNcBoxDefault(button As Iribboncontrol, ByRef state)
     state = True
-    adjustSlideNumbers = True
+    doNotAdjustSlideNumbers = False
 End Sub
 
 ' The "Split on click-triggered animations" check box
 ' has been clicked
 Sub CTcBoxChanged(button As Iribboncontrol, pressed As Boolean)
-    splitMouseTriggered = pressed
+    doNotSplitMouseTriggered = Not pressed
 End Sub
 
 ' The "Split on click-triggered animations" check box
 ' is checked by default
 Sub CTcBoxDefault(button As Iribboncontrol, ByRef state)
     state = True
-    splitMouseTriggered = True
+    doNotSplitMouseTriggered = False
 End Sub
 
 ' Display the about dialog

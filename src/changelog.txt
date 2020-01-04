@@ -1,3 +1,22 @@
+1.10 (May 2013)
+- Fixed a small bug that could cause a crash when fixing slide numbers in
+  the presence of multiple slide masters (the first slide master was not
+  always displayed as the current master, causing shape selection to fail
+  in some cases). This bug only affected the implementation for PowerPoint
+  <=2003.
+- Fixed a glitch with the detection of the selected slide range. It only
+  affected splitting on a selected range of slides, and caused errors in
+  recognizing the range if slides were not selected in the order in which
+  they appeared in the presentation. Now the range is assumed to start at
+  the lowest numbered selected slide and to end at the highest numbered
+  selected slide: regardless of the range being contiguous or not, all the
+  slides in between are processed.
+- Reversed semantic for internal variables representing the status of the
+  "Split on mouse click" and "Adjust slide numbers" buttons. This has no
+  impact on the final user except that, in case of failure of the add-in,
+  the internal status is reverted to "True" for both of them (until now
+  it was reverted to "False"), regardless of the status of the buttons.
+
 1.9 (May 2013)
 - Fixed a (very subtle) problem that caused skipping of some animation
   effects in the timeline during the preprocessing phase that deletes
