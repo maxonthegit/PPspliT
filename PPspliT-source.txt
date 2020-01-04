@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.11
+'                    |_|                version 1.12
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: July 2013
+' last update: October 2014
 ' Source code for PowerPoint 2007+
 '
 '
@@ -253,8 +253,8 @@ Private Sub clearParagraph(sh As Shape, par)
         End If
         i = i + 1
     Wend
-    ' Set bullet symbol too to " " (160 is the Unicode value)
-    p.ParagraphFormat.Bullet.Character = 160
+    ' Set bullet symbol too to " " (32 is the Unicode value)
+    p.ParagraphFormat.Bullet.Character = 32
 End Sub
 
 '

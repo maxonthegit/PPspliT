@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.11"
+	StrCpy $PPSPLIT_RELEASE "1.12"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -148,6 +148,9 @@ ${un}Loop:
 	StrCmp "14" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2010"
 	StrCpy $ERRORS ""
+	StrCmp "15" $SHORT_OFFICE_RELEASE 0 +3
+	StrCpy $1 "Office 2013"
+	StrCpy $ERRORS ""
 	
 	${If} $3 = 0
 		; First iteration: 32-bit
@@ -159,6 +162,11 @@ ${un}Loop:
 
 	DetailPrint "      Configuring PowerPoint $CURRENT_OFFICE_RELEASE ($1), architecture $RELEASE_ARCH"
 	StrCpy $CONFIGURED "yes"
+
+	${If} $SHORT_OFFICE_RELEASE == 15
+		; Warn the user about the fact that Office 2013 may not be fully supported
+		MessageBox MB_OK|MB_ICONEXCLAMATION "An Office 2013 installation has been detected. The add-in may not be fully compatible with this release of PowerPoint, but it is going to be configured anyway."
+	${EndIf}
 
 	; Determine the correct version of the add-in to install	
 	${If} $SHORT_OFFICE_RELEASE <= 11

@@ -1,3 +1,8 @@
+1.12 (October 2014)
+- Fixed a bug in the clearParagraph subroutine: the bullet character was
+  improperly set to character 160, but it had to be set to character 32
+  (space) instead (thanks to Leon Carvalho for pointing this out).
+
 1.11 (Jul 2013)
 - Fixed a bug that could cause crashes of the add-in in at least 50% of the
   installations when processing path motion effects. Evidence of the bug
