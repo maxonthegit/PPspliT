@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.20"
+	StrCpy $PPSPLIT_RELEASE "1.21"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -127,17 +127,17 @@ ${un}Loop:
 	StrCpy $CURRENT_OFFICE_REGKEY "Software\Microsoft\Office\$CURRENT_OFFICE_RELEASE"
 	ReadRegStr $2 HKLM "$CURRENT_OFFICE_REGKEY\PowerPoint\InstallRoot" "Path"
 	IfErrors ${un}Next
-	
-			
+
+
 	; We are now sure that the current Office release is really installed
-	
+
 	; Only the first 2 characters of the Office release are relevant
 	StrCpy $SHORT_OFFICE_RELEASE $CURRENT_OFFICE_RELEASE 2
 	StrCpy $1 "unknown release"
 	; Assume we could not recognize the Office release until we actually do
 	StrCpy $ERRORS "yes"
 	StrCmp "10" $SHORT_OFFICE_RELEASE 0 +3
-	StrCpy $1 "Office XP"	
+	StrCpy $1 "Office XP"
 	StrCpy $ERRORS ""
 	StrCmp "11" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2003"
@@ -154,7 +154,7 @@ ${un}Loop:
 	StrCmp "16" $SHORT_OFFICE_RELEASE 0 +3
 	StrCpy $1 "Office 2016"
 	StrCpy $ERRORS ""
-	
+
 	${If} $3 = 0
 		; First iteration: 32-bit
 		StrCpy $RELEASE_ARCH "x86"
@@ -166,13 +166,12 @@ ${un}Loop:
 	DetailPrint "      Configuring PowerPoint $CURRENT_OFFICE_RELEASE ($1), architecture $RELEASE_ARCH"
 	StrCpy $CONFIGURED "yes"
 
+    ; Warning section
 	${If} $SHORT_OFFICE_RELEASE == 15
-   ${OrIf} $SHORT_OFFICE_RELEASE == 16
-		; Warn the user about the fact that Office 2013/2016 may not be fully supported
-		MessageBox MB_OK|MB_ICONEXCLAMATION "An Office 2013/2016 installation has been detected. Some recent features of PowerPoint may be unsupported, but the add-in is going to be configured anyway."
+    ${OrIf} $SHORT_OFFICE_RELEASE == 16
 	${EndIf}
 
-	; Determine the correct version of the add-in to install	
+	; Determine the correct version of the add-in to install
 	${If} $SHORT_OFFICE_RELEASE <= 11
 		; Prior to Office 2007
 		StrCpy $ADDIN_FILE "$INSTDIR\PPspliT.ppa"
@@ -228,12 +227,12 @@ FunctionEnd
 Section ""
 
 	SetDetailsView show
-	
+
 	SetOutPath $INSTDIR
 
   	IfFileExists $INSTDIR\mouse-button.gif 0 +2
   	DetailPrint "Upgrading existing installation."
-  	
+
   	File changelog.txt
 	File common_resources\about-button.gif
 	File common_resources\mouse-button.gif
@@ -242,9 +241,9 @@ Section ""
 	File common_resources\ppsplit.ico
 	File PPT11-\*.*
 	File PPT12+\*.*
-	
+
 	DetailPrint "Registering add-in for all installed PowerPoint releases..."
-	
+
 	GetFunctionAddress $REGISTRATION_HANDLER RegisterAddin
 	Call Handle_Addin_Registration
 
@@ -260,7 +259,7 @@ Section ""
 
 	StrCmp $ERRORS "" +2
 	MessageBox MB_OK|MB_ICONEXCLAMATION "Failed to detect any supported Office releases: the add-in may have been left unconfigured."
-	
+
 	StrCmp $CONFIGURED "" 0 +2
 	MessageBox MB_OK|MB_ICONEXCLAMATION "Failed to automatically detect any Office releases. The add-in has been left unconfigured."
 SectionEnd
@@ -274,7 +273,7 @@ Section "Uninstall"
 
 	GetFunctionAddress $REGISTRATION_HANDLER un.UnregisterAddin
 	Call un.Handle_Addin_Registration
-	
+
 	; WARNING: The following command should only be used if the InstallDir
 	; cannot be changed by the user (like it is the case here). Otherwise, you
 	; risk to wipe out important folders!!
