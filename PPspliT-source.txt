@@ -7,169 +7,13 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_|                version 1.20
+'                    |_| by Massimo Rimondini - version 1.21
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: June 2019
+' last update: June 2020
 ' Source code for PowerPoint 2007+
 '
 '
-'
-' PPspliT is a PowerPoint add-in that automatically splits animation effects
-' into different slides. The most practical use is to produce PDF files of
-' slides that contain several overlapping shapes that are supposed to appear
-' one after the other.
-
-' WARNING: running the add-in will modify your presentation. Even though it is
-' generally possible to revert the changes using the undo feature (Ctrl+Z), it
-' is strongly advised to work on a copy of your original presentation. I assume
-' no responsibility if your slideshow is transformed into a senseless pile of
-' debris. :-)
-
-' USAGE: Simply click on the "Split animations" button of the PPspliT toolbar and
-' there you go. Using the appropriate button on the same toolbar, you can choose
-' to split animation effects that are triggered by a mouse click (most common
-' usage) or just every animation effect (this may be slow).
-
-' Note that it may take a while for the processing to complete. If
-' you are wondering 1) why so much code, and 2) why so long a time to split the
-' animations, I can give some starting points for your consideration:
-' * PowerPoint applies slideshow effects to rasterized versions of the shapes.
-' Instead, here I need to re-implement the same effects on the original shape
-' objects.
-' * Visual Basic for Applications has some sparse bugs here and there, which allow
-' limited or no access to shape properties. I need to work these around to my best.
-' * Effects on text boxes are especially tricky to apply, because text boxes may
-' have the text auto-fit feature enabled. This is very important to consider, because
-' paragraphs that have not appeared yet still need to consume room in the text box,
-' or the auto-fit will mess up text alignment. I couldn't find an always-working
-' way to map the fitted font size on an actual font size, therefore this has been
-' implemented with some workarounds.
-' * Each animation step requires creating a new slide, which is unavoidably time
-' consuming.
-' * Shape properties (e.g., depth, text attributes, etc.) must be matched between
-' different slides. Due to the smart paste features of PowerPoint, a simple
-' copy&paste cycle is not always enough to this purpose.
-' * For each slide, all the shapes that are supposed to appear later on by means
-' of an entry effect must be preliminarly removed.
-'
-' If you are satisfied with the above explanation, you may also be interested in
-' a list of features of this add-in.
-'
-'   __
-'  / _| ___  __ _| |_ _   _ _ __ ___  ___
-' | |_ / _ \/ _` | __| | | | '__/ _ \/ __|
-' |  _|  __/ (_| | |_| |_| | | |  __/\__ \
-' |_|  \___|\__,_|\__|\__,_|_|  \___||___/
-'
-' - Supports all entry, emphasis, exit, and motion path effects (with some caveats, see
-' below).
-'
-' - Can operate on a range of selected slides or on the whole presentation, if no
-' slides are selected.
-'
-' - Supports rewound-after-the-end and auto-reverse effects, reversed motion
-' paths, and hide-on-next-click effects.
-'
-' - Keeps slide numbers consistent: if a slide number is displayed in the slide footer,
-' the same number will be displayed for all the slides that result from the split of a
-' single original slide, as one would expect.
-'
-'
-'
-' DOES NOT, and probably will never SUPPORT:
-'
-' - Shape dimming after playing an effect.
-'
-' - Effects triggered by mouse clicks on a specific shape.
-'
-' - The shaking and blinking emphasis effects, due to a PowerPoint bug. :-(
-'
-' - Duration for emphasis effects (e.g., until next click or until the end of
-' the slide). All emphasis effects last until the end of the slide.
-'
-' - Accurate rendering of color effects: they do not perfectly match
-' PowerPoint's behavior (which is hard to reverse engineer) but still
-' provide an acceptable emphasis effect.
-'
-' - Most emphasis and motion effects that apply to a single text paragraph instead of
-' a whole shape. In general, all those effects whose rendering requires separation
-' of the text frame from its parent shape are unlikely to be supported.
-'
-' - Text effects that are applied to paragraphs containing a mixture of standard text
-' and equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
-' objects).
-'
-' - Accurate alignment of shapes in a group. This is hardly obtainable, as it
-' depends on PowerPoint's copy&paste behavior and in the affected cases it can
-' also be experienced with a manual copy&paste operation.
-'
-' - Accurate proportions in font scaling for grow/shrinking emphasis effects.
-' This would only be possible by working with a rasterized version of the affected shapes.
-' The best I can do for now is to apply a proportional font scaling (i.e., a
-' bare modification of the font size) that is a good compromise between the horizontal
-' and the vertical growth/shrink.
-'
-' - Accurate processing of emphasis effects affecting fill/line colors. I still
-' couldn 't track down why sometimes color information in effects that are still
-' to be processed gets messed up before reaching those effects.
-'
-' - Adjusting of the auto-fit property for text frames. This is due to some limits
-' in the interface that PowerPoint offers for that property (in PPT<2007 it is
-' totally absent, while in PPT 2007 it seems to work fairly well).
-'
-' - Accurate rendering of some rotation effects. Actually, during the presentation
-' powerpoint rotates shapes around the center of the visible shape body. That is,
-' if you have a very large container box for a shape, but the actual shape only
-' takes a small part of the box (like, e.g., in the case of an arc), PowerPoint will
-' rotate the shape around its actual center, not the container box center.
-'
-' - Some glitches exist with exit entry/effects that affect shapes that are part of
-' a slide layout. The reason is that those shapes are turned into placeholders
-' (instead of disappearing) when one attempts to delete them.
-'
-' - Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
-' <=2003 using the Microsoft Office Compatibility Pack.
-'
-' - Handling of bullet symbols in itemized lists: bullets may sometimes be lost or
-' replaced with other symbols due to PowerPoint issues in pasting paragraph formats
-' and to the inability to access the picture currently used for a bullet.
-'
-' - Animations in slide masters.
-'
-' - Everything else I am not aware of. ;-)
-'
-'
-'
-' Just in case you are curious:
-' - The additional tab in Office 2007 has been added using the Office 2007
-' Custom UI editor.
-' - The ASCII art text above has been rendered using figlet.
-'
-'
-'
-'
-'
-'
-'
-'_______________________________________________________________________________
-'###############################################################################
-'###############################################################################
-'###############################################################################
-'###############################################################################
-'###############################################################################
-'###############################################################################
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -200,7 +44,7 @@ Public Const maxProgressWidth = 324
 Private Function localizeDecimalSeparators(ByVal s As String)
     Dim d As Double, useCommaAsSeparator As Boolean
     useCommaAsSeparator = False
-    
+
     ' Use a test value to check for the currently used decimal
     ' separator. In principle, we could use the user-supplied
     ' argument, but if it is a value between 0 and 1, it could
@@ -208,7 +52,7 @@ Private Function localizeDecimalSeparators(ByVal s As String)
     ' if we are not using the correct decimal separator in the
     ' assignment (which is exactly what we are trying to
     ' discover here).
-    
+
     d = "1,2"
     ' If "," is not the decimal separator in use for the current
     ' system locale, this assignment results in losing the decimal
@@ -221,7 +65,7 @@ Private Function localizeDecimalSeparators(ByVal s As String)
     ' has survived the assignment, we need to look for its
     ' internal representation (which is "."), not its localized one.
     useCommaAsSeparator = (InStr(Trim(Str$(d)), ".") > 0)
-    
+
     If useCommaAsSeparator Then
         d = Replace(s, ".", ",")
     Else
@@ -283,10 +127,10 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
         p2.Characters.InsertAfter Chr$(13)
         newLineInserted = True
     End If
-    
+
     ' Apply contents and formatting from the original paragraph
     p2.Copy
-    
+
     ' It seems that the following 6 assignments, applied *before* pasting
     ' the paragraph, reduce the number of cases in which bullet symbols
     ' are lost. The reason why this happens is completely obscure to me, but
@@ -298,9 +142,9 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
     p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
     p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
-    
+
     p1.Paste
-    
+
     p1.IndentLevel = p2.IndentLevel
     ' Apparently, restoring line spacing here, where it should be more
     ' appropriate, messes up formatting in most of the cases. Therefore,
@@ -311,7 +155,7 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
 '    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
 '    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
 '    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
-    
+
     ' Restore bullet formatting. Since there seems to be no
     ' way to get the currently used image for a bullet, care
     ' must be taken in updating the bullet attributes only if
@@ -345,7 +189,7 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
         p1.Characters(i) = p2.Characters(i)
         copyFontAttributes p1.Characters(i).Font, p2.Characters(i).Font
     Next i
-    
+
     ' Remove any previously inserted new line characters
     If newLineInserted Then
         p1.Characters(Len(p1.Text)).Delete
@@ -406,7 +250,7 @@ Private Sub matchZOrder(s1 As Slide, s2 As Slide)
             j = j + 1
         End If
     Next i
-    
+
     ' Bring to front shapes in s1 by increasing values of ZOrder
     For i = 1 To j - 1
         sortedShapes(i).ZOrder msoBringToFront
@@ -1061,7 +905,7 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As Effect, sh As Shape)
         End If
     ElseIf e.EffectType = msoAnimEffectVerticalGrow Then
         ' Font scaling alone is not supported for this effect
-        
+
         ' Disable size autofitting for text frames and unlock
         ' aspect ratio
         sh.LockAspectRatio = msoFalse
@@ -1444,7 +1288,7 @@ Private Function isPathEffect(e As Effect) As Boolean
     ' 0 = msoAnimEffectCustom = Customized path
     isPathEffect = isPathEffect Or e.EffectType = msoAnimEffectCustom
     Exit Function
-    
+
 pathRecover:
     ' Powerpoint bug: this effect has no EffectType property;
     ' I cannot either recognize or handle it. At the time of
@@ -1492,7 +1336,7 @@ Private Function isEmphasisEffect(e As Effect) As Boolean
     isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectWave
     isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectStyleEmphasis
     isEmphasisEffect = isEmphasisEffect Or e.EffectType = msoAnimEffectBlast
-    
+
     isEmphasisEffect = isEmphasisEffect Or isPathEffect(e)
 
     ' If isEmphasisEffect is true at this point, then I have
@@ -1601,7 +1445,7 @@ Private Sub purgeFutureShapes(s As Slide, textParagraphEffectsOnly As Boolean)
             i = i + 1
         Wend
     End If
-    
+
     If start_deleting_at > 0 Then
         For i = start_deleting_at To s.TimeLine.MainSequence.Count
             If i > s.TimeLine.MainSequence.Count Then Exit For
@@ -1839,7 +1683,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         If par > 0 Then
                             Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
                             copyParagraph newShape.TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
-                            
+
                             ' Attempt to preserve indentations and margins (these are not
                             ' part of paragraph information, but rather of a Ruler object).
                             ' In principle, the number of ruler levels (i.e., possible
@@ -1860,7 +1704,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                                     newShape.TextFrame.Ruler.Levels(ruler_level).LeftMargin = sh.TextFrame.Ruler.Levels(ruler_level).LeftMargin
                                 End If
                             Next ruler_level
-                            
+
                             ' Sometimes text auto-fitting does not seem to act
                             ' properly: this is an attempt to "awaken" it by
                             ' notifying of a change in the shape size
@@ -1908,7 +1752,7 @@ Private Sub bakeSlideNumbers(start_index, end_index, maxProgressWidth)
     Dim sh As Shape
 
     ProgressForm.infoLabel = "Adjusting slide numbers. This may take some time..."
-    
+
     ' Placeholders from slide masters (even custom layouts) appear as standard shapes in the
     ' slides. Therefore, here we search for placeholder shapes in each slide and, when found,
     ' we simply reassign the text to the shape, in order to turn any special <pagenumber>
@@ -1932,7 +1776,7 @@ Private Sub bakeSlideNumbers(start_index, end_index, maxProgressWidth)
             End If
         Next sh
     Next i
-    
+
 End Sub
 
 
@@ -1978,15 +1822,15 @@ Sub PPspliT_main()
     ProgressForm.SlideBar.Width = 0
     ProgressForm.OverallBar.Width = 0
     ProgressForm.Show
-    
+
     If ActiveWindow.ViewType <> ppViewSlide And ActiveWindow.ViewType <> ppViewNormal Then
         ActiveWindow.ViewType = ppViewNormal
     End If
-        
+
     ' Bake slide numbers (and other footers that may contain slide numbers) into the
     ' presentation, if requested.
     If Not doNotAdjustSlideNumbers Then bakeSlideNumbers slide_number, tot_slides, maxProgressWidth
-    
+
     ' Since lots of duplicate slides will be created in the process, I must
     ' keep note of:
     ' orig_tot_slides, which is the total number of slides in the selected
@@ -2006,9 +1850,9 @@ Sub PPspliT_main()
             '
             ' There are effects to be processed in the current slide
             '
-            
+
             copyShapeIds ActivePresentation.Slides(slide_number)
-            
+
             '
             ' First of all, take care of effects that start without a click
             ' (and, therefore, have an immediate effect on the rendered slide)
@@ -2050,7 +1894,7 @@ Sub PPspliT_main()
         Else
             actual_slide = actual_slide + 1
         End If
-            
+
         '
         ' Now, take care of mouse-triggered effects
         '
@@ -2067,7 +1911,7 @@ Sub PPspliT_main()
                 purgeFutureShapes ActivePresentation.Slides(slide_number), False
                 purgeEffects ActivePresentation.Slides(slide_number)
                 alreadyPurged = True
-                
+
             End If
             ActivePresentation.Slides(slide_number).Duplicate
             slide_number = slide_number + 1
@@ -2079,7 +1923,7 @@ Sub PPspliT_main()
                     ' The applyEffect method eats an animation effect for each call,
                     ' unless it returns 1.
                     addedEffects = applyEffect(ActivePresentation.Slides(slide_number), ActivePresentation.Slides(slide_number + 1))
-                    
+
                     '
                     ' Ok, the current effect has been processed. Keep staying on the same slide
                     ' as long as there are other non-mouse-triggered effects.
@@ -2096,7 +1940,7 @@ Sub PPspliT_main()
                     End If
                     processed_anims = processed_anims + 1 - addedEffects
                     anims_percentage = Int(processed_anims / tot_anims * 100)
-                    
+
                     ProgressForm.SlideLabel = Str$(anims_percentage) + " %"
                     ProgressForm.SlideBar.Width = anims_percentage / 100 * maxProgressWidth
                     ProgressForm.Repaint
@@ -2124,9 +1968,9 @@ Sub PPspliT_main()
             purgeEffects ActivePresentation.Slides(slide_number)
             actual_slide = actual_slide + 1
         End If
-        
+
         slide_number = slide_number + 1
-        
+
         overall_percentage = Int((actual_slide - 1) / orig_tot_slides * 100)
         ProgressForm.OverallLabel = Str$(overall_percentage) + " %"
         ProgressForm.OverallBar.Width = overall_percentage / 100 * maxProgressWidth
@@ -2139,10 +1983,10 @@ Sub PPspliT_main()
             Exit Sub
         End If
     Wend
-    
+
     Unload ProgressForm
     Exit Sub
-    
+
 error_handler:
     resp = MsgBox("Sorry, but despite the efforts in foreseeing and catching possible anomalies, I have incurred an unrecoverable error." & vbCrLf & _
                   "Error number: " & Str$(Err.Number) & vbCrLf & _

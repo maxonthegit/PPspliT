@@ -1,3 +1,8 @@
+1.21 (June 2020)
+- No functional changes.
+- Comments at the beginning of the source code have been moved to README.md.
+- First MacOS release.
+
 1.20 (June 2019)
 - The code for PowerPoint 2007+ is unchanged (the version number has just
   been updated).
@@ -197,4 +202,3 @@
 
 1.0 (Nov 2009)
 - First release
-
