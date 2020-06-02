@@ -200,10 +200,10 @@ limits or bugs.
   * Accurate rendering of some rotation effects. During the presentation
   PowerPoint rotates shapes around the center of the visible shape body. Instead,
   PPspliT rotates it around the center of the container box. To explain the
-  difference, consider an arc, whose container box is a rectangle (or, possibly,
-  a square): PowerPoint would rotate it around the center of the arc stroke,
-  whereas PPspliT would rotate it around the center of the container box, which
-  is usually larger.
+  difference, consider an arc, whose container box is the rectangle (or,
+  possibly, square) that encloses the full circle: PowerPoint would rotate the
+  arc around the center of the arc stroke itself, whereas PPspliT would rotate
+  it around the center of the container box, which is usually larger.
   * Exit/entry effects applied to shapes that are part of a slide layout are only
   partially supported. In fact, these shapes are turned into placeholders
   (instead of disappearing altogether) when one attempts to delete them.
@@ -226,31 +226,29 @@ and [its follow-up](https://neilmitchell.blogspot.com/2007/11/powerpoint-pdf-par
 ## Acknowledgments
 Although I am the only developer of the add-in, several suggestions for
 improvements and bug fixes came in the form of feedback from its end users. Some
-of them are acknowledged in the [changelog](changelog.txt).
+of them are acknowledged in the [changelog](src/changelog.txt).
 
 ----
 
 # Troubleshooting
 * _The add-in is splitting only the first slide instead of the whole slide deck._ \
-Maybe you have accidentally selected the first slide in the thumbnail list in
-the left side pane of PowerPoint. Just try clicking anywhere in the main pane of
+Maybe you have accidentally selected the first slide in the left-side thumbnail
+pane of PowerPoint. Just try clicking anywhere in the main pane of
 PowerPoint (i.e., the slide editor) and try PPspliTting again.
 * _Error "Macro cannot be found or has been disabled because of security" is
 displayed every time I try to split slides._ \
 As an outdated but, possibly, still valid explanation, a [security update
 released by Microsoft](http://support.microsoft.com/kb/2598041/en-us") around
-April 2012 may cause this issue, which is not specific to this add-in and can
-impact most VBA-based applications that make use of dialog boxes. To correct
-this problem, Microsoft suggests deleting cached versions of control type
-libraries, which is harmless for your system. I can confirm that this solution
-has worked for me.\ Basically, you have to delete all `.exd` files stored in
-`%HOMEPATH%\Application Data\Microsoft\Forms` and `%TEMP%\VBE`. Please rely on
-the [official instructions from
-Microsoft](http://support.microsoft.com/kb/2703186/en-us). \
-If this does not
-solve your problem, then either you are still using an outdated PPspliT release
-(1.5 is known to have such compatibility problems) or your macro security
-settings may need to be reviewed.
+April 2012 may cause this issue with most VBA-based applications that make use
+of dialog boxes, including PPspliT. To correct this problem, Microsoft suggests
+deleting cached versions of control type libraries, which is harmless for your
+system. I can confirm that this solution has worked for me. Basically, you have
+to delete all `.exd` files stored in `%HOMEPATH%\Application
+Data\Microsoft\Forms` and `%TEMP%\VBE`. Please rely on the official instructions
+from Microsoft, which can be found in the page mentioned above. \
+If this does not solve your problem, then either you are still using an outdated
+PPspliT release (1.5 is known to have such compatibility problems) or your macro
+security settings may need to be reviewed.
 
 
 
