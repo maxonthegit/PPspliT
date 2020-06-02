@@ -102,8 +102,11 @@ of an entry effect must be preliminarly removed.
 
 ## Building
 As PPspliT is implemented as a VBA macro inside PowerPoint, there is no true
-_build_ procedure. However, you may have reasons to repackage it in the form of
-a redistributable installer.
+_build_ procedure. The source code is embedded in PowerPoint binary files that
+are saved as native PowerPoint add-ins: this is also the reason why changes are
+tracked in a separate file ([PPspliT-source.txt](PPspliT-source.txt)). \
+The only step that requires _building_ is the generation of distributable
+installers.
 
 ### Prerequisites
 * Windows
@@ -117,6 +120,7 @@ a redistributable installer.
 file as follows:
   * Update the release number if required.
   * Save the file (`PPspliT.pptm`).
+  * Copy the updated source code and paste it to file `PPspliT-source.txt`.
   * Export the same file as a PowerPoint add-in (`PPspliT.ppam`).
   * Open `PPspliT.pptm` using the Office 2007 Custom UI Editor or the Office
   RibbonX Editor, update the release number if required, and save the file.
