@@ -108,11 +108,11 @@ a redistributable installer.
 ### Prerequisites
 * Windows
   * [Nullsoft Scriptable Install System (NSIS)](https://sourceforge.net/projects/nsis/)
-  * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/ archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try  using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx- editor) instead.
+  * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try  using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx-editor) instead.
 * MacOS
   * Script Editor (ships natively with MacOS)
 
-## Packaging for Windows
+### Packaging for Windows
 * Edit the VBA macro inside `PPT12+\PPspliT.pptm` as needed, then prepare the
 file as follows:
   * Update the release number if required.
@@ -128,7 +128,7 @@ as a PowerPoint 97-2003 add-in (`PPspliT.ppa`).
 right-click on the file and select "Compile NSIS script"). File `PPspliT-setup.exe`
 should then be generated in the parent folder.
 
-## Packaging for MacOS
+### Packaging for MacOS
 * Apply changes to `PPspliT.pptm` and export it as PowerPoint add-in `PPspliT.ppam`
 as described above for the Windows case.
 * Open file `MacOS/PPspliT for MacOS/Install PPspliT.app` using Apple's Script
