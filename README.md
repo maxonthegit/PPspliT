@@ -118,7 +118,7 @@ installers.
 ### Packaging for Windows
 * Edit the VBA macro inside `PPT12+\PPspliT.pptm` as needed, then prepare the
 file as follows:
-  * Update the release number if required.
+  * Update the release number if required (also in the about dialog box).
   * Save the file (`PPspliT.pptm`).
   * Copy the updated source code and paste it to file `PPspliT-source.txt`.
   * Export the same file as a PowerPoint add-in (`PPspliT.ppam`).
