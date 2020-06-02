@@ -25,31 +25,31 @@ tries to fill this gap.
 
 ## Features
 * **User experience**
- * Fully integrated with PowerPoint: it is natively implemented in Visual Basic
- for Applications (VBA).
- * Adds a new tab in PowerPoint's native ribbon toolbar (or dedicated toolbar
- for PowerPoint releases prior to 2007): splitting slides is a one-click task.
- * Can operate on a range of selected slides or on the whole presentation, if no
- slides are selected.
+  * Fully integrated with PowerPoint: it is natively implemented in Visual Basic
+  for Applications (VBA).
+  * Adds a new tab in PowerPoint's native ribbon toolbar (or dedicated toolbar
+  for PowerPoint releases prior to 2007): splitting slides is a one-click task.
+  * Can operate on a range of selected slides or on the whole presentation, if no
+  slides are selected.
 * **Capabilities**
- * Supports all entry, emphasis, exit and motion path effects applied to slide
- shapes (with some caveats, see below).
- * Supports "Rewind when done playing", "Hide on next mouse click" and
- "Auto-reverse" effect flags, as well as reversed motion paths.
- * Can split slides at every click-triggered animation effect (like it would
- happen during a slideshow) or at each and every animation effect (useful to
- preserve multiple intermediate animations that are played without any speaker
- interaction).
- * Can optionally preserve slide numbers during splitting: if slide footers
- contain text frames with dynamically computed slide numbers, these can be
- overwritten so that numbers in all the slides resulting from splitting a single
- original slide match its original slide number.
- * Operates with native PowerPoint shapes: the slides produced after the split
- are derived from the original presentation and still contain editable shapes.
- * Format agnostic: since the final product is still a slide deck, you can
- export it to any document format for which you have a virtual printer or file
- converter installed. PDF is implicitly supported, as PowerPoint has been
- including an export function to this format for a few years now.
+  * Supports all entry, emphasis, exit and motion path effects applied to slide
+  shapes (with some caveats, see below).
+  * Supports "Rewind when done playing", "Hide on next mouse click" and
+  "Auto-reverse" effect flags, as well as reversed motion paths.
+  * Can split slides at every click-triggered animation effect (like it would
+  happen during a slideshow) or at each and every animation effect (useful to
+  preserve multiple intermediate animations that are played without any speaker
+  interaction).
+  * Can optionally preserve slide numbers during splitting: if slide footers
+  contain text frames with dynamically computed slide numbers, these can be
+  overwritten so that numbers in all the slides resulting from splitting a single
+  original slide match its original slide number.
+  * Operates with native PowerPoint shapes: the slides produced after the split
+  are derived from the original presentation and still contain editable shapes.
+  * Format agnostic: since the final product is still a slide deck, you can
+  export it to any document format for which you have a virtual printer or file
+  converter installed. PDF is implicitly supported, as PowerPoint has been
+  including an export function to this format for a few years now.
 
 Some examples displaying the operation of the add-in can be found in the
 [project home page][Home page].
@@ -103,20 +103,20 @@ a redistributable installer.
 
 ### Prerequisites
 * Windows
- * [Nullsoft Scriptable Install System (NSIS)](https://sourceforge.net/projects/nsis/)
- * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx-editor) instead.
+  * [Nullsoft Scriptable Install System (NSIS)](https://sourceforge.net/projects/nsis/)
+  * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/ archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try  using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx- editor) instead.
 * MacOS
- * Script Editor (ships natively with MacOS)
+  * Script Editor (ships natively with MacOS)
 
 ## Packaging for Windows
 * Edit the VBA macro inside `PPT12+\PPspliT.pptm` as needed, then prepare the
 file as follows:
- * Update the release number if required.
- * Save the file (`PPspliT.pptm`).
- * Export the same file as a PowerPoint add-in (`PPspliT.ppam`).
- * Open `PPspliT.pptm` using the Office 2007 Custom UI Editor or the Office
- RibbonX Editor, update the release number if required, and save the file.
- * Do the same for `PPspliT.ppam`.
+  * Update the release number if required.
+  * Save the file (`PPspliT.pptm`).
+  * Export the same file as a PowerPoint add-in (`PPspliT.ppam`).
+  * Open `PPspliT.pptm` using the Office 2007 Custom UI Editor or the Office
+  RibbonX Editor, update the release number if required, and save the file.
+  * Do the same for `PPspliT.ppam`.
 * Apply consistent changes to file `PPT11-\PPspliT.ppt`, save it and export it
 as a PowerPoint 97-2003 add-in (`PPspliT.ppa`).
 * Edit file `ppsplit_installer.nsi` to refresh the release number if required.
@@ -156,60 +156,60 @@ portable documents.
 minor glitches may exist with versions prior to 2007, sometimes due to VBA
 limits or bugs.
 * Some functions are knowingly unsupported and may never be implemented:
- * Slide transitions, as they are meant to smoothen slide changes and have no
- persistent effects on their contents.
- * Shape dimming after playing an effect.
- * Effects triggered by mouse clicks on a specific shape.
- * The shaking and blinking emphasis effects, due to a PowerPoint bug.
- * SmartArt objects because, to my knowledge, VBA does not offer a proper
- interface to individually process the shapes they are made of.
- * Duration for emphasis effects (e.g., until next click or until the end of
- the slide): all emphasis effects last until the end of the slide.
- * Accurate rendering of color effects: they do not perfectly match
- PowerPoint's behavior (which is not obvious to reverse engineer) but still
- provide an acceptable emphasis effect.
- * Most emphasis and motion effects that apply to a single text paragraph
- instead of a whole shape. In general, all those effects whose rendering
- requires separation of the text frame from its parent shape are unlikely to be
- supported.
- * Text effects applied to paragraphs containing a mixture of standard text and
- equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
- objects).
- * Accurate alignment of shapes in a group. This is hardly obtainable, as it
- depends on PowerPoint's copy&paste behavior. In the affected cases the same
- issue can be experienced with a manual copy&paste operation.
- * Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
- versions of the shapes, thus proportionally scaling all their elements (e.g.,
- shape borders). Instead, PPspliT resizes the native shape, thus preserving its
- components (e.g., border thickness). The result is better because there is no
- _pixelize_ effect, but it may be a little different from expected. This
- difference is enhanced for the case of font scaling for grow/shrinking emphasis
- effects: PPspliT renders this by changing font size by an amount that is a good
- compromise between horizontal and vertical growth/shrink.
- * Accurate processing of emphasis effects affecting fill/line colors. For
- reasons which I haven't been able to figure out, sometimes color change
- settings in effects that are still to be processed get corrupted before
- reaching these effects, causing a failure to apply the intended color.
- * Handling the auto-fit property for text frames, due to some limits in the
- interface that PowerPoint offers for this property (in PPT<2007 it is
- totally absent, while in PPT 2007 it seems to work fairly well).
- * Accurate rendering of some rotation effects. During the presentation
- PowerPoint rotates shapes around the center of the visible shape body. Instead,
- PPspliT rotates it around the center of the container box. To explain the
- difference, consider an arc, whose container box is a rectangle (or, possibly,
- a square): PowerPoint would rotate it around the center of the arc stroke,
- whereas PPspliT would rotate it around the center of the container box, which
- is usually larger.
- * Exit/entry effects applied to shapes that are part of a slide layout are only
- partially supported. In fact, these shapes are turned into placeholders
- (instead of disappearing altogether) when one attempts to delete them.
- * Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
- <=2003 using the Microsoft Office Compatibility Pack.
- * Handling of bullet symbols in itemized lists: bullets may sometimes be lost
- or replaced with other symbols due to PowerPoint issues in pasting paragraph
- formats and to the inability to access the picture currently used for a bullet.
- * Animations in slide masters.
- * Something else I am not aware of.
+  * Slide transitions, as they are meant to smoothen slide changes and have no
+  persistent effects on their contents.
+  * Shape dimming after playing an effect.
+  * Effects triggered by mouse clicks on a specific shape.
+  * The shaking and blinking emphasis effects, due to a PowerPoint bug.
+  * SmartArt objects because, to my knowledge, VBA does not offer a proper
+  interface to individually process the shapes they are made of.
+  * Duration for emphasis effects (e.g., until next click or until the end of
+  the slide): all emphasis effects last until the end of the slide.
+  * Accurate rendering of color effects: they do not perfectly match
+  PowerPoint's behavior (which is not obvious to reverse engineer) but still
+  provide an acceptable emphasis effect.
+  * Most emphasis and motion effects that apply to a single text paragraph
+  instead of a whole shape. In general, all those effects whose rendering
+  requires separation of the text frame from its parent shape are unlikely to be
+  supported.
+  * Text effects applied to paragraphs containing a mixture of standard text and
+  equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
+  objects).
+  * Accurate alignment of shapes in a group. This is hardly obtainable, as it
+  depends on PowerPoint's copy&paste behavior. In the affected cases the same
+  issue can be experienced with a manual copy&paste operation.
+  * Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
+  versions of the shapes, thus proportionally scaling all their elements (e.g.,
+  shape borders). Instead, PPspliT resizes the native shape, thus preserving its
+  components (e.g., border thickness). The result is better because there is no
+  _pixelize_ effect, but it may be a little different from expected. This
+  difference is enhanced for the case of font scaling for grow/shrinking emphasis
+  effects: PPspliT renders this by changing font size by an amount that is a good
+  compromise between horizontal and vertical growth/shrink.
+  * Accurate processing of emphasis effects affecting fill/line colors. For
+  reasons which I haven't been able to figure out, sometimes color change
+  settings in effects that are still to be processed get corrupted before
+  reaching these effects, causing a failure to apply the intended color.
+  * Handling the auto-fit property for text frames, due to some limits in the
+  interface that PowerPoint offers for this property (in PPT<2007 it is
+  totally absent, while in PPT 2007 it seems to work fairly well).
+  * Accurate rendering of some rotation effects. During the presentation
+  PowerPoint rotates shapes around the center of the visible shape body. Instead,
+  PPspliT rotates it around the center of the container box. To explain the
+  difference, consider an arc, whose container box is a rectangle (or, possibly,
+  a square): PowerPoint would rotate it around the center of the arc stroke,
+  whereas PPspliT would rotate it around the center of the container box, which
+  is usually larger.
+  * Exit/entry effects applied to shapes that are part of a slide layout are only
+  partially supported. In fact, these shapes are turned into placeholders
+  (instead of disappearing altogether) when one attempts to delete them.
+  * Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
+  <=2003 using the Microsoft Office Compatibility Pack.
+  * Handling of bullet symbols in itemized lists: bullets may sometimes be lost
+  or replaced with other symbols due to PowerPoint issues in pasting paragraph
+  formats and to the inability to access the picture currently used for a bullet.
+  * Animations in slide masters.
+  * Something else I am not aware of.
 
 ---
 
