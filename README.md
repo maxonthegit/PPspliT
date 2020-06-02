@@ -46,7 +46,7 @@ tries to fill this gap.
   original slide match its original slide number.
   * Operates with native PowerPoint shapes: the slides produced after the split
   are derived from the original presentation and still contain editable shapes.
-  * Format agnostic: since the final product is still a slide deck, you can
+  * Format-agnostic: since the final product is still a slide deck, you can
   export it to any document format for which you have a virtual printer or file
   converter installed. PDF is implicitly supported, as PowerPoint has been
   including an export function to this format for a few years now.
@@ -57,14 +57,23 @@ Some examples displaying the operation of the add-in can be found in the
 
 ## Usage
 Simply click on the "Split animations" button of the PPspliT toolbar.
-Using the appropriate buttons on the same toolbar, you can choose to split
+Using the appropriate checkboxes on the same toolbar, you can choose to split
 slides on animation effects that are triggered by a mouse click (most common
-usage) or just every animation effect (this may be especially slow).
+usage) or just every animation effect (this may be especially slow). You can
+also choose to preserve slide numbers during the split.
 
 [Usage instructions](PPspliT-howto.pdf) are also available.
 
-Note that it may take a while for the processing to complete. If you are
-wondering
+**Notice**: the add-in makes heavy use of the system clipboard. Therefore, it
+is very important that you refrain from using it during the split and that no
+programs interfere with the clipboard at all.
+
+**Warning**: running the add-in will modify your presentation. Even though it is
+generally possible to revert the changes using the undo feature (Ctrl+Z), it is
+strongly advised to work on a copy of the original slide deck to avoid losing
+your work by accidentally overwriting it with the split presentation.
+
+It may take a while for the split process to complete. If you are wondering
 1. why so much code and
 2. why does it take so long to split animations
 
@@ -74,25 +83,20 @@ Instead, in PPspliT the same effects are re-implemented on the original shape
 objects.
 * VBA has some sparse bugs here and there, which allow limited or no access to
 shape properties. I needed to work these around to my best.
-
-* Effects on text boxes are especially tricky to apply, because text boxes may
-have the text auto-fit feature enabled. This is very important to consider, because
-paragraphs that have not appeared yet still need to consume room in the text box,
-or the auto-fit will mess up text alignment. I couldn't find an always-working
-way to map the fitted font size on an actual font size, therefore this has been
-implemented with some workarounds.
-* Each animation step requires creating a new slide, which is unavoidably time
-consuming.
+* Effects on text frames are especially tricky to apply, because these frames
+may have the text auto-fit feature enabled. Paragraphs that have not appeared
+yet still need to consume room in the text box, or the auto-fit will adjust font
+size to fit just the visible text. I couldn't find an always-working way to
+retrieve the actual font size used by PowerPoint after auto-fitting, therefore
+this has been implemented with some workarounds.
+* Each animation step requires creating a new slide, which is time consuming.
 * Shape properties (e.g., depth, text attributes, etc.) must be matched between
-different slides. Due to the smart paste features of PowerPoint, a simple
-copy&paste cycle is not always enough to this purpose.
+different slides. Part of this process relies on native copy-pasting. However,
+due to the smart paste features of PowerPoint, a simple copy&paste cycle is not
+always enough to this purpose.
 * For each slide, all the shapes that are supposed to appear later on by means
 of an entry effect must be preliminarly removed.
 
-**Notice**: running the add-in will modify your presentation. Even though it is
-generally possible to revert the changes using the undo feature (Ctrl+Z), it is
-strongly advised to work on a copy of the original slide deck to avoid losing
-your work by accidentally overwriting it with the split presentation.
 
 ----
 
