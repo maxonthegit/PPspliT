@@ -22,6 +22,17 @@ printing or PDF export has never been natively offered by PowerPoint. PPspliT
 tries to fill this gap.
 
 ----
+* [Features](#features)
+* [Usage](#usage)
+* [Building](#building)
+  * [Prerequisites](#prerequisites)
+  * [Packaging for Windows](#packaging-for-windows)
+  * [Packaging for MacOS](#packaging-for-macos)
+* [Known limitations](#known-limitations)
+* [References](#references)
+* [Acknowledgments](#acknowledgments)
+* [Troubleshooting](#troubleshooting)
+----
 
 ## Features
 * **User experience**

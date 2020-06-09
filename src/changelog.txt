@@ -1,7 +1,8 @@
 1.21 (June 2020)
 - No functional changes.
 - Comments at the beginning of the source code have been moved to README.md.
-- First MacOS release.
+- First (experimental) MacOS release.
+- Suppressed warning for Office 2013/2016 in Windows installer.
 
 1.20 (June 2019)
 - The code for PowerPoint 2007+ is unchanged (the version number has just
