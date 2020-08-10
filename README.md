@@ -224,6 +224,10 @@ limits or bugs.
   (instead of disappearing altogether) when one attempts to delete them.
   * Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
   <=2003 using the Microsoft Office Compatibility Pack.
+  * Adjustment of (dynamic) slide numbers that appear in standard text boxes
+  (i.e., only slide numbers appearing in special placeholder boxes that are
+  defined in slide masters and inserted as headers/footers in the slide deck are
+  recognized and supported).
   * Handling of bullet symbols in itemized lists: bullets may sometimes be lost
   or replaced with other symbols due to PowerPoint issues in pasting paragraph
   formats and to the inability to access the picture currently used for a bullet.
