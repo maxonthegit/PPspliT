@@ -111,10 +111,10 @@ InstallDir $APPDATA\Microsoft\AddIns\PPspliT
 ; This function must be shared between installer and uninstaller
 !macro define_addin_registration_function un
 Function ${un}Handle_Addin_Registration
-	Push $0
-	Push $1
-	Push $2
-	Push $3
+	Push $0    ; Index of the currently processed registry key
+	Push $1    ; Descriptive Office release (for logging)
+	Push $2    ; Temp variable to store PowerPoint installation path (never really used except to verify actual installation)
+	Push $3    ; 0 when looking in the 32-bit registry view; 1 when looking in the 64-bit view
 	StrCpy $0 0	; Iterates over registry keys representing candidate Office releases
 	SetRegView 32
 ${un}Loop:
