@@ -1,3 +1,12 @@
+1.22 (August 2020)
+- Improved slide number adjustment function: besides preserving the original
+  slide numbering during the split, now it is also possible to add a subindex to
+  each slide that derives from splitting a single original slide. For example,
+  a slide numbered 5 would be split into "5.1", "5.2", "5.3", etc.
+  Thanks to Soumitra Pal for suggesting this new feature.
+- Revised add-in toolbar to accommodate the aforementioned function.
+- Updated documentation accordingly.
+
 1.21 (June 2020)
 - No functional changes.
 - Comments at the beginning of the source code have been moved to README.md.
