@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 1.22
+'                    |_| by Massimo Rimondini - version 1.23
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: August 2020
+' last update: November 2020
 ' Source code for PowerPoint 2007+
 '
 '
@@ -307,10 +307,31 @@ Private Function deleteShape(sh As Shape, theTimeline As Sequence, effectId)
 End Function
 
 '
+' This utility sub is required to wrap the action of accessing
+' property Brightness of ColorFormat objects, because this
+' property is only exposed starting from Office 2010 (14.0).
+' Since VBA's compiler evaluates the full code of a subroutine
+' when it is about to execute it, putting this assignment in a
+' conditional statement is not enough to prevent it from raising
+' a "Method or data member not found" error at runtime.
+'
+Private Sub assignColorBrightness(col1 As ColorFormat, col2 As ColorFormat)
+    col1.Brightness = col2.Brightness
+End Sub
+
+'
 ' This subroutine assigns the color in the ColorFormat object
 ' col2 to the ColorFormat object col1.
-' Care must be taken in that the color may be specified as an
-' index referring to the slide color scheme or as an RGB value.
+' Since color assignments may involve several object types (e.g.,
+' shapes, text, color change effects), care must be taken in
+' that the color may be specified as an index referring to the
+' slide color scheme or as an RGB value. There are cases (e.g.,
+' target color in color change effects) in which directly
+' assigning the RGB value when the target color is indeed
+' derived from the slide color scheme can result in a
+' "ColorFormat: Invalid request. This object has no associated
+' color scheme" runtime error, actually meaning the RGB value
+' is inaccessible.
 '
 Private Sub assignColor(col1 As ColorFormat, col2 As ColorFormat)
     If col2.Type <> msoColorTypeRGB Then
@@ -323,7 +344,7 @@ Private Sub assignColor(col1 As ColorFormat, col2 As ColorFormat)
         If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
             ' The brightness level is referred to the color in the
             ' first row of the color palette (that is, the scheme color)
-            col1.Brightness = col2.Brightness
+            assignColorBrightness col1, col2
         End If
         On Error GoTo 0
     Else

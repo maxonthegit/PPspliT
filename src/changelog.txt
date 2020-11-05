@@ -1,3 +1,13 @@
+1.23 (November 2020)
+- This release fixes the bug reported in
+  https://github.com/maxonthegit/PPspliT/issues/5: the Brightness property of
+  ColorFormat objects was sometimes accessed even in PowerPoint releases which
+  do not implement it (most notably, PowerPoint 2007).
+  This happened because version checking code did not work as expected, and
+  resulted in an obscure and not-so-unlikely error while splitting certain
+  animation effects in the affected PowerPoint releases (indeed, this should
+  have impacted only PowerPoint 2007).
+
 1.22 (August 2020)
 - Improved slide number adjustment function: besides preserving the original
   slide numbering during the split, now it is also possible to add a subindex to
