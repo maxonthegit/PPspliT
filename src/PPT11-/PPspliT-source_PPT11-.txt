@@ -1764,7 +1764,8 @@ Private Sub bakePlaceholder(footerElement, start_index, end_index, designIndex, 
                                 For c = 1 To sh.TextFrame.TextRange.Characters.Count
                                      sh.TextFrame.TextRange.Characters(c) = sh.TextFrame.TextRange.Characters(c)
                                 Next c
-                                sh.Name = "slideNumberPlaceholder"
+                                ' Shape names must be unique (a "Permission Denied" error is raised otherwise)
+                                sh.Name = "slideNumberPlaceholder" & Str$(sh.id)
                             End If
                         Next sh
                     End If
@@ -1858,7 +1859,7 @@ Private Sub augmentSlideNumbers(slide_number, progressive_slide_count)
     Dim sh As Shape
 
     For Each sh In ActivePresentation.Slides(slide_number).Shapes
-        If slideNumbersAdjustMode = SLIDENUMBER_SUBINDEX And sh.Name = "slideNumberPlaceholder" Then
+        If slideNumbersAdjustMode = SLIDENUMBER_SUBINDEX And Left$(sh.Name, 22) = "slideNumberPlaceholder" Then
             sh.TextFrame.TextRange.InsertAfter "." + Right$(Str$(progressive_slide_count), Len(Str$(progressive_slide_count)) - 1)
         End If
     Next sh

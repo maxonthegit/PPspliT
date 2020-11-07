@@ -2,11 +2,14 @@
 - This release fixes the bug reported in
   https://github.com/maxonthegit/PPspliT/issues/5: the Brightness property of
   ColorFormat objects was sometimes accessed even in PowerPoint releases which
-  do not implement it (most notably, PowerPoint 2007).
-  This happened because version checking code did not work as expected, and
-  resulted in an obscure and not-so-unlikely error while splitting certain
-  animation effects in the affected PowerPoint releases (indeed, this should
-  have impacted only PowerPoint 2007).
+  do not implement it (most notably, PowerPoint 2007). This resulted in a quite
+  frequent error while splitting certain animation effects in the affected
+  PowerPoint releases (indeed, this should have impacted only PowerPoint 2007)
+  and happened because version checking code did not work as expected.
+- Fixed a bug in the split modes that preserve slide numbers, which caused
+  a "Permission denied" error when more than one placeholder among page number,
+  date/time and footer was enabled on the slide deck. This affected only
+  PowerPoint releases 2003 and earlier.
 
 1.22 (August 2020)
 - Improved slide number adjustment function: besides preserving the original
