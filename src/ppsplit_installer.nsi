@@ -233,7 +233,7 @@ Section ""
   	IfFileExists $INSTDIR\mouse-button.gif 0 +2
   	DetailPrint "Upgrading existing installation."
 
-  	File changelog.txt
+  	File ..\CHANGES.txt
 	File common_resources\about-button.gif
 	File common_resources\mouse-button.gif
 	File common_resources\slide-numbers.gif
