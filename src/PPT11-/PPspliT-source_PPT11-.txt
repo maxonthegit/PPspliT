@@ -7,7 +7,7 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 1.23
+'                    |_| by Massimo Rimondini - version 1.24
 '
 ' first written by Massimo Rimondini in November 2009
 ' last update: November 2020
@@ -1704,7 +1704,7 @@ Private Sub purgeEffects(s As Slide)
     For i = 1 To s.TimeLine.MainSequence.Count
         s.TimeLine.MainSequence(1).Delete
     Next i
-    s.SlideShowTransition.EntryEffect = ppEffectAppear
+    s.SlideShowTransition.EntryEffect = ppEffectNone
 End Sub
 
 '

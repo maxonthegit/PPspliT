@@ -1,3 +1,7 @@
+1.24 (November 2020)
+- This relese fixes bug https://github.com/maxonthegit/PPspliT/issues/6: slides
+  were improperly assigned a slide transition effect after being split.
+
 1.23 (November 2020)
 - This release fixes the bug reported in
   https://github.com/maxonthegit/PPspliT/issues/5: the Brightness property of
