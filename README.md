@@ -245,7 +245,7 @@ and [its follow-up](https://neilmitchell.blogspot.com/2007/11/powerpoint-pdf-par
 ## Acknowledgments
 Although I am the only developer of the add-in, several suggestions for
 improvements and bug fixes came in the form of feedback from its end users. Some
-of them are acknowledged in the [changelog](src/changelog.txt).
+of them are acknowledged in the [changelog](src/CHANGES.txt).
 
 ----
 
