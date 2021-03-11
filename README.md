@@ -265,9 +265,9 @@ system. I can confirm that this solution has worked for me. Basically, you have
 to delete all `.exd` files stored in `%HOMEPATH%\Application
 Data\Microsoft\Forms` and `%TEMP%\VBE`. Please rely on the official instructions
 from Microsoft, which can be found in the page mentioned above. \
-If this does not solve your problem, then either you are still using an outdated
-PPspliT release (1.5 is known to have such compatibility problems) or your macro
-security settings may need to be reviewed.
+If this does not solve your problem, then either you are still using a really
+outdated PPspliT release (1.5 was known to have such compatibility problems) or
+your macro security settings may need to be reviewed.
 
 
 
