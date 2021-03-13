@@ -180,8 +180,13 @@ limits or bugs.
   * Shape dimming after playing an effect.
   * Effects triggered by mouse clicks on a specific shape.
   * The shaking and blinking emphasis effects, due to a PowerPoint bug.
-  * SmartArt objects because, to my knowledge, VBA does not offer a proper
-  interface to individually process the shapes they are made of.
+  * Processing of effects applied to individual shapes of SmartArt objects or
+  other composite objects (e.g., charts) because, to my knowledge, the interface
+  exposed by VBA to alter the properties of such shapes is somewhat limited. For
+  example, a position property like
+  `Selection.ShapeRange(1).SmartArt.Nodes(1).Shapes(1).Left` is read-only, and
+  methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
+  being applied to its individual shapes.
   * Duration for emphasis effects (e.g., until next click or until the end of
   the slide): all emphasis effects last until the end of the slide.
   * Accurate rendering of color effects: they do not perfectly match
@@ -216,9 +221,11 @@ limits or bugs.
   PowerPoint rotates shapes around the center of the visible shape body. Instead,
   PPspliT rotates it around the center of the container box. To explain the
   difference, consider an arc, whose container box is the rectangle (or,
-  possibly, square) that encloses the full circle: PowerPoint would rotate the
-  arc around the center of the arc stroke itself, whereas PPspliT would rotate
-  it around the center of the container box, which is usually larger.
+  possibly, square) that encloses the full circle: at slideshow time PowerPoint
+  would rotate the arc around the center of the arc stroke itself, whereas
+  PPspliT would rotate it around the center of the container box, which is
+  usually larger, thus giving the impression that the visible shape (the arc)
+  has "wandered around".
   * Exit/entry effects applied to shapes that are part of a slide layout are only
   partially supported. In fact, these shapes are turned into placeholders
   (instead of disappearing altogether) when one attempts to delete them.
