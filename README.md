@@ -175,71 +175,71 @@ portable documents.
 minor glitches may exist with versions prior to 2007, sometimes due to VBA
 limits or bugs.
 * Some functions are knowingly unsupported and may never be implemented:
-  1. Slide transitions, as they are meant to smoothen slide changes and have no
-  persistent effects on their contents.
-  2. Shape dimming after playing an effect.
-  3. Effects triggered by mouse clicks on a specific shape.
-  4. The shaking and blinking emphasis effects, due to a PowerPoint bug.
-  5. Processing of effects applied to individual shapes of SmartArt objects or
-  other composite objects (e.g., charts) because, to my knowledge, the interface
-  exposed by VBA to alter the properties of such shapes is somewhat limited. For
-  example, a position property like
-  `Selection.ShapeRange(1).SmartArt.Nodes(1).Shapes(1).Left` is read-only, and
-  methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
-  being applied to its individual shapes.
-  6. Duration for emphasis effects (e.g., until next click or until the end of
-  the slide): all emphasis effects last until the end of the slide.
-  7. Accurate rendering of color effects: they do not perfectly match
-  PowerPoint's behavior (which is not obvious to reverse engineer) but still
-  provide an acceptable emphasis effect.
-  8. Most emphasis and motion effects that apply to a single text paragraph
-  instead of a whole shape. In general, all those effects whose rendering
-  requires separation of the text frame from its parent shape are unlikely to be
-  supported.
-  9. Text effects applied to paragraphs containing a mixture of standard text and
-  equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
-  objects).
-  10. Accurate alignment of shapes in a group. This is hardly obtainable, as it
-  depends on PowerPoint's copy&paste behavior. In the affected cases the same
-  issue can be experienced with a manual copy&paste operation.
-  11. Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
-  versions of the shapes, thus proportionally scaling all their elements (e.g.,
-  shape borders). Instead, PPspliT resizes the native shape, thus preserving its
-  components (e.g., border thickness). The result is better because there is no
-  _pixelize_ effect, but it may be a little different from expected. This
-  difference is enhanced for the case of font scaling for grow/shrinking emphasis
-  effects: PPspliT renders this by changing font size by an amount that is a good
-  compromise between horizontal and vertical growth/shrink.
-  12. Accurate processing of emphasis effects affecting fill/line colors. For
-  reasons which I haven't been able to figure out, sometimes color change
-  settings in effects that are still to be processed get corrupted before
-  reaching these effects, causing a failure to apply the intended color.
-  13. Handling the auto-fit property for text frames, due to some limits in the
-  interface that PowerPoint offers for this property (in PPT<2007 it is
-  totally absent, while in PPT 2007 it seems to work fairly well).
-  14. Accurate rendering of some rotation effects. During the presentation
-  PowerPoint rotates shapes around the center of the visible shape body. Instead,
-  PPspliT rotates it around the center of the container box. To explain the
-  difference, consider an arc, whose container box is the rectangle (or,
-  possibly, square) that encloses the full circle: at slideshow time PowerPoint
-  would rotate the arc around the center of the arc stroke itself, whereas
-  PPspliT would rotate it around the center of the container box, which is
-  usually larger, thus giving the impression that the visible shape (the arc)
-  has "wandered around".
-  15. Exit/entry effects applied to shapes that are part of a slide layout are only
-  partially supported. In fact, these shapes are turned into placeholders
-  (instead of disappearing altogether) when one attempts to delete them.
-  16. Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
-  <=2003 using the Microsoft Office Compatibility Pack.
-  17. Adjustment of (dynamic) slide numbers that appear in standard text boxes
-  (i.e., only slide numbers appearing in special placeholder boxes that are
-  defined in slide masters and inserted as headers/footers in the slide deck are
-  recognized and supported).
-  18. Handling of bullet symbols in itemized lists: bullets may sometimes be lost
-  or replaced with other symbols due to PowerPoint issues in pasting paragraph
-  formats and to the inability to access the picture currently used for a bullet.
-  19. Animations in slide masters.
-  20. Something else I am not aware of.
+1. Slide transitions, as they are meant to smoothen slide changes and have no
+persistent effects on their contents.
+2. Shape dimming after playing an effect.
+3. Effects triggered by mouse clicks on a specific shape.
+4. The shaking and blinking emphasis effects, due to a PowerPoint bug.
+5. Processing of effects applied to individual shapes of SmartArt objects or
+other composite objects (e.g., charts) because, to my knowledge, the interface
+exposed by VBA to alter the properties of such shapes is somewhat limited. For
+example, a position property like
+`Selection.ShapeRange(1).SmartArt.Nodes(1).Shapes(1).Left` is read-only, and
+methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
+being applied to its individual shapes.
+6. Duration for emphasis effects (e.g., until next click or until the end of
+the slide): all emphasis effects last until the end of the slide.
+7. Accurate rendering of color effects: they do not perfectly match
+PowerPoint's behavior (which is not obvious to reverse engineer) but still
+provide an acceptable emphasis effect.
+8. Most emphasis and motion effects that apply to a single text paragraph
+instead of a whole shape. In general, all those effects whose rendering
+requires separation of the text frame from its parent shape are unlikely to be
+supported.
+9. Text effects applied to paragraphs containing a mixture of standard text and
+equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
+objects).
+10. Accurate alignment of shapes in a group. This is hardly obtainable, as it
+depends on PowerPoint's copy&paste behavior. In the affected cases the same
+issue can be experienced with a manual copy&paste operation.
+11. Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
+versions of the shapes, thus proportionally scaling all their elements (e.g.,
+shape borders). Instead, PPspliT resizes the native shape, thus preserving its
+components (e.g., border thickness). The result is better because there is no
+_pixelize_ effect, but it may be a little different from expected. This
+difference is enhanced for the case of font scaling for grow/shrinking emphasis
+effects: PPspliT renders this by changing font size by an amount that is a good
+compromise between horizontal and vertical growth/shrink.
+12. Accurate processing of emphasis effects affecting fill/line colors. For
+reasons which I haven't been able to figure out, sometimes color change
+settings in effects that are still to be processed get corrupted before
+reaching these effects, causing a failure to apply the intended color.
+13. Handling the auto-fit property for text frames, due to some limits in the
+interface that PowerPoint offers for this property (in PPT<2007 it is
+totally absent, while in PPT 2007 it seems to work fairly well).
+14. Accurate rendering of some rotation effects. During the presentation
+PowerPoint rotates shapes around the center of the visible shape body. Instead,
+PPspliT rotates it around the center of the container box. To explain the
+difference, consider an arc, whose container box is the rectangle (or,
+possibly, square) that encloses the full circle: at slideshow time PowerPoint
+would rotate the arc around the center of the arc stroke itself, whereas
+PPspliT would rotate it around the center of the container box, which is
+usually larger, thus giving the impression that the visible shape (the arc)
+has "wandered around".
+15. Exit/entry effects applied to shapes that are part of a slide layout are only
+partially supported. In fact, these shapes are turned into placeholders
+(instead of disappearing altogether) when one attempts to delete them.
+16. Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
+<=2003 using the Microsoft Office Compatibility Pack.
+17. Adjustment of (dynamic) slide numbers that appear in standard text boxes
+(i.e., only slide numbers appearing in special placeholder boxes that are
+defined in slide masters and inserted as headers/footers in the slide deck are
+recognized and supported).
+18. Handling of bullet symbols in itemized lists: bullets may sometimes be lost
+or replaced with other symbols due to PowerPoint issues in pasting paragraph
+formats and to the inability to access the picture currently used for a bullet.
+19. Animations in slide masters.
+20. Something else I am not aware of.
 
 ---
 
