@@ -27,7 +27,7 @@ Var CONFIGURED		; if "" at the end of the install, then the add-in has not been 
 ; This function must be shared between installer and uninstaller
 !macro define_init_callback un
 Function ${un}.onInit
-	StrCpy $PPSPLIT_RELEASE "1.24"
+	StrCpy $PPSPLIT_RELEASE "1.25"
 	StrCpy $ERRORS ""
 	StrCpy $CONFIGURED ""
 	ReadRegStr $HOST_ARCH HKLM "System\CurrentControlSet\Control\Session Manager\Environment" "PROCESSOR_ARCHITECTURE"
@@ -152,7 +152,7 @@ ${un}Loop:
 	StrCpy $1 "Office 2013"
 	StrCpy $ERRORS ""
 	StrCmp "16" $SHORT_OFFICE_RELEASE 0 +3
-	StrCpy $1 "Office 2016"
+	StrCpy $1 "Office 2016/2019/2021"
 	StrCpy $ERRORS ""
 
 	${If} $3 = 0

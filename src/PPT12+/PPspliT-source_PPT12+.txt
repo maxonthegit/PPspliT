@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 1.24
+'                    |_| by Massimo Rimondini - version 1.25
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: November 2020
+' last update: November 2021
 ' Source code for PowerPoint 2007+
 '
 '
@@ -160,6 +160,10 @@ Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
 '    p1.ParagraphFormat.SpaceAfter = p2.ParagraphFormat.SpaceAfter
 '    p1.ParagraphFormat.SpaceBefore = p2.ParagraphFormat.SpaceBefore
 '    p1.ParagraphFormat.SpaceWithin = p2.ParagraphFormat.SpaceWithin
+
+    ' Contradicting the above observations, restoring the original paragraph
+    ' alignment may indeed be useful here.
+    p1.ParagraphFormat.Alignment = p2.ParagraphFormat.Alignment
     
     ' Restore bullet formatting. Since there seems to be no
     ' way to get the currently used image for a bullet, care

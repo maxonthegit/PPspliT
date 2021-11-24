@@ -1,3 +1,8 @@
+1.25 (November 2021)
+- Addressed a glitch that caused text paragraphs in split slides to be aligned
+  differently from the original slide. Thanks to Torsten-Karl Strempel for
+  pointing out this issue.
+
 1.24 (November 2020)
 - This relese fixes bug https://github.com/maxonthegit/PPspliT/issues/6: slides
   were improperly assigned a slide transition effect after being split.
@@ -34,7 +39,7 @@
 - The code for PowerPoint 2007+ is unchanged (the version number has just
   been updated).
 - Improved preservation of text properties in PowerPoint 2003- for animation
-  effects applied to text paragraphs. Thanks to Mattia Rocco for point out
+  effects applied to text paragraphs. Thanks to Mattia Rocco for pointing out
   this problem.
 
 1.19 (March 2018)
