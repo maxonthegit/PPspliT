@@ -6,7 +6,7 @@ I'm not saying this to frighten you, but rather to reassure me :-)
 You are free to use this add-in in whatever context you like to, and redistribution is also encouraged.
 If you like, drop me a line so that I can collect some feedback on its usage: I am very happy to be acquainted with your experiences. And, yes, should you need help you can try to ask me of course: I always do my best to answer your requests but, honestly, I do not have enough resources (time, typically) to provide you with a real "technical support".
 
-http://www.maxonthenet.altervista.org/
+https://www.maxonthenet.altervista.org/
 
 Many of the feedbacks I have already received are (fortunately) positive. Somebody even felt so grateful that he sought for more effective ways of expressing his gratitude. I repeat: a message from yours is more than enough.
 But, if you really eager for a more concrete way of saying "thank you" and are happy with the awareness that this will not push development nor grant you any additional technical support, well... here is my Paypal account for sending a donation:
