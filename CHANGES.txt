@@ -1,3 +1,16 @@
+
+1.26 (December 2021)
+- Apparently, per-paragraph animation effects applied to a text box can become
+  "corrupted" when all the text in the box is deleted: instead of removing the
+  animation steps altogether, PowerPoint leaves behind a single animation step
+  for which the "text animation" property cannot be set (i.e., it is impossible
+  to determine whether the animation is applied to a text paragraph or the
+  whole containing shape) and is not even played during the slideshow. This
+  abnormal condition caused PPspliT to mistakenly detect the animation as
+  applied to a paragraph and, consequently, fail due to the paragraph being
+  non-existent. An additional check has been introduced to cope with this
+  condition. Thanks to Torsten-Karl Strempel for pointing out this issue.
+
 1.25 (November 2021)
 - Addressed a glitch that caused text paragraphs in split slides to be aligned
   differently from the original slide. Thanks to Torsten-Karl Strempel for

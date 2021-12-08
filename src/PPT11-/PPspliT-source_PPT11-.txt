@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 1.25
+'                    |_| by Massimo Rimondini - version 1.26
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: November 2021
+' last update: December 2021
 ' Source code for PowerPoint 2003-
 '
 '
@@ -119,6 +119,10 @@ End Sub
 Private Sub copyParagraph(p1 As TextRange, p2 As TextRange)
     Dim newLineInserted As Boolean
 
+    ' Sometimes text paragraphs are just empty. In this case
+    ' return immediately
+    If p2.Characters.Count = 0 Then Exit Sub
+    
     If Asc(p2.Characters(p2.Characters.Count)) <> 13 Then
         ' This paragraph does not end with a new line (most
         ' likely because it is the last paragraph in the text
