@@ -10,6 +10,7 @@
   applied to a paragraph and, consequently, fail due to the paragraph being
   non-existent. An additional check has been introduced to cope with this
   condition. Thanks to Torsten-Karl Strempel for pointing out this issue.
+- Improved About dialog box: text box turned to a label, added hyperlinks.
 
 1.25 (November 2021)
 - Addressed a glitch that caused text paragraphs in split slides to be aligned
