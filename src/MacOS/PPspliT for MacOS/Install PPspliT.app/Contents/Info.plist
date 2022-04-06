@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.25</string>
+	<string>1.27</string>
 	<key>CFBundleSignature</key>
 	<string>aplt</string>
 	<key>CFBundleVersion</key>
@@ -44,7 +44,7 @@
 	<key>NSHomeKitUsageDescription</key>
 	<string>This script needs access to your HomeKit Home to run.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>©2021 Massimo Rimondini</string>
+	<string>©2022 Massimo Rimondini</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This script needs access to your microphone to run.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -70,7 +70,7 @@
 		<key>name</key>
 		<string>ScriptWindowState</string>
 		<key>positionOfDivider</key>
-		<real>400</real>
+		<real>344</real>
 		<key>savedFrame</key>
 		<string>79 143 999 672 0 0 1440 875 </string>
 		<key>selectedTab</key>
