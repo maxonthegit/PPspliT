@@ -7,10 +7,10 @@
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 1.26
+'                    |_| by Massimo Rimondini - version 1.27
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: December 2021
+' last update: April 2022
 ' Source code for PowerPoint 2007+
 '
 '
@@ -233,8 +233,8 @@ End Sub
 '
 ' This subroutine applies the ZOrder (depth) of shapes in s2 to shapes in s1.
 ' Corresponding shapes in s1 and in s2 are different objects, therefore, in order
-' to be matched, shape IDs must have been copied to the AlternativeText in advance
-' by using the copyShapeIds subroutine.
+' to be matched, shape IDs must have been copied in advance to a shape property
+' that is more persistent by using the copyShapeIds subroutine.
 ' Note: the algorithm used to sort shapes in s2 by increasing ZOrder could be
 ' improved.
 '
@@ -252,7 +252,7 @@ Private Sub matchZOrder(s1 As Slide, s2 As Slide)
             ' two shapes with the same ZOrder
             If sh2.ZOrderPosition < minZ And sh2.ZOrderPosition > zThreshold Then
                 minZ = sh2.ZOrderPosition
-                minZshapeId = sh2.AlternativeText
+                minZshapeId = sh2.Tags("shapeId")
             End If
         Next sh2
         zThreshold = minZ
@@ -508,7 +508,7 @@ Private Sub shiftAllMotions(effectSequence As Sequence, sh As Shape, shiftX, shi
         ' under consideration (which comes from a different slide). Therefore,
         ' operator "Is" cannot be used to match the shapes whose motion effects
         ' should be updated.
-        If isPathEffect(currentEffect) And currentEffect.Shape.AlternativeText = sh.AlternativeText Then
+        If isPathEffect(currentEffect) And currentEffect.Shape.Tags("shapeId") = sh.Tags("shapeId") Then
             ' This is a motion effect applied to the shape under consideration
             motionPathTokens = Split(currentEffect.Behaviors(1).MotionEffect.Path)
             ' The first character states this is a path motion, therefore I preserve it
@@ -1549,7 +1549,7 @@ End Sub
 '
 ' This function returns the sequential number of a shape in s
 ' that matches the id, or 0 if no such shape exists. The
-' function relies on the values of the AlternativeText,
+' function relies on the values of the "shapeId" tag,
 ' which must have been set up in advance using the
 ' copyShapeIds subroutine.
 '
@@ -1558,7 +1558,7 @@ Private Function findShape(s As Slide, id)
     i = 1
     findShape = 0
     For Each currentShape In s.Shapes
-        If currentShape.AlternativeText = id Then
+        If currentShape.Tags("shapeId") = id Then
             findShape = i
             Exit Function
         End If
@@ -1582,8 +1582,8 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
     If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHide Then
         ' This effect is set for hiding the shape after the animation, so it
         ' must be treated equivalently to an exit effect: simply delete the shape
-        If findShape(s, sh.AlternativeText) > 0 Then
-            deleteShape s.Shapes(findShape(s, sh.AlternativeText)), seq_slide.TimeLine.MainSequence, 1
+        If findShape(s, sh.Tags("shapeId")) > 0 Then
+            deleteShape s.Shapes(findShape(s, sh.Tags("shapeId"))), seq_slide.TimeLine.MainSequence, 1
         End If
         current_effect.Delete
     Else
@@ -1623,8 +1623,8 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
             If current_effect.Exit Then
                 ' This is an exit effect: simply delete the shape (or the text
                 ' paragraph) from the next slide
-                If findShape(s, sh.AlternativeText) > 0 Then
-                    deleteShape s.Shapes(findShape(s, sh.AlternativeText)), seq_slide.TimeLine.MainSequence, 1
+                If findShape(s, sh.Tags("shapeId")) > 0 Then
+                    deleteShape s.Shapes(findShape(s, sh.Tags("shapeId"))), seq_slide.TimeLine.MainSequence, 1
                 End If
                 current_effect.Delete
             Else
@@ -1633,14 +1633,14 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                     ' effect has no overall effect. Also, an emphasis effect can never be applied
                     ' to a single text paragraph
                     If Not current_effect.Timing.AutoReverse Then
-                        If findShape(s, sh.AlternativeText) > 0 Then
-                            applyEmphasisEffect seq_slide.TimeLine.MainSequence, seq_slide.TimeLine.MainSequence(1), s.Shapes(findShape(s, sh.AlternativeText))
+                        If findShape(s, sh.Tags("shapeId")) > 0 Then
+                            applyEmphasisEffect seq_slide.TimeLine.MainSequence, seq_slide.TimeLine.MainSequence(1), s.Shapes(findShape(s, sh.Tags("shapeId")))
                         End If
                     End If
                     current_effect.Delete
                 Else
                     ' This is an entry effect.
-                    If Not findShape(s, sh.AlternativeText) > 0 Then
+                    If Not findShape(s, sh.Tags("shapeId")) > 0 Then
                         ' The shape is not already present
                         sh.Copy
                         ' Invoke purgeEffects to clear any subsequent entry
@@ -1652,7 +1652,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         ' and therefore applyEffect is invoked multiple times).
                         purgeEffects s
                         s.Shapes.Paste
-                        Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                        Set newShape = s.Shapes(findShape(s, sh.Tags("shapeId")))
                         ' Coordinates of the pasted shape are sometimes
                         ' automatically adjusted (for example if the shape
                         ' overlaps with another one)
@@ -1680,7 +1680,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                                         End If
                                     Next k
                                     If foundEntryAnim Then
-                                        clearParagraph s.Shapes(findShape(s, sh.AlternativeText)), parIdx
+                                        clearParagraph s.Shapes(findShape(s, sh.Tags("shapeId"))), parIdx
                                     End If
                                 End If
                             Next parIdx
@@ -1715,7 +1715,7 @@ Private Function applyEffect(s As Slide, seq_slide As Slide)
                         par = current_effect.Paragraph
                         On Error GoTo 0
                         If par > 0 Then
-                            Set newShape = s.Shapes(findShape(s, sh.AlternativeText))
+                            Set newShape = s.Shapes(findShape(s, sh.Tags("shapeId")))
                             copyParagraph newShape.TextFrame.TextRange.Paragraphs(par), sh.TextFrame.TextRange.Paragraphs(par)
                             
                             ' Attempt to preserve indentations and margins (these are not
@@ -1765,7 +1765,7 @@ Private Sub purgeEffects(s As Slide)
 End Sub
 
 '
-' This function copies shape Ids to the AlternativeText field. This is
+' This function copies shape Ids to a less volatile Tag. This is
 ' very useful to match different instances of the same shape in different
 ' slides, as the copy-and-paste process used to implement entry effects
 ' discards the shape id.
@@ -1773,7 +1773,7 @@ End Sub
 Private Sub copyShapeIds(s As Slide)
     Dim sh As Shape
     For Each sh In s.Shapes
-        sh.AlternativeText = Str$(sh.id)
+        sh.Tags.Add "shapeId", Str$(sh.id)
     Next sh
 End Sub
 
@@ -1853,10 +1853,10 @@ Sub PPspliT_main()
     ' Non-contiguous ranges of slides are NOT supported: they are assumed to
     ' start at the lowest numbered selected slide and end at the highest numbered
     ' selected slide.
-    If ActiveWindow.selection.Type = ppSelectionSlides Then
+    If ActiveWindow.Selection.Type = ppSelectionSlides Then
         min_slide_index = 32767
         max_slide_index = 0
-        For Each s In ActiveWindow.selection.SlideRange
+        For Each s In ActiveWindow.Selection.SlideRange
             If s.SlideIndex < min_slide_index Then min_slide_index = s.SlideIndex
             If s.SlideIndex > max_slide_index Then max_slide_index = s.SlideIndex
         Next s

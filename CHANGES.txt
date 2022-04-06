@@ -1,3 +1,13 @@
+1.27 (April 2022)
+- Preserving some shape properties across slides requires using a more
+  persistent shape property than the shape ID (which is regenerated for each
+  copy of the same shape). AlternativeText was used as a property "carrier" so
+  far, but this causes loss of some potentially useful information (for example
+  for producing accessible PDFs). Now the code has switched to using Tags, which
+  are more flexible and not expected to cause any information loss.
+  This addresses https://github.com/maxonthegit/PPspliT/issues/11.
+- Slightly enlarged the about box to leave more room for text when using
+  high-DPI displays.
 
 1.26 (December 2021)
 - Apparently, per-paragraph animation effects applied to a text box can become
