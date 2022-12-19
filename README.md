@@ -75,9 +75,11 @@ also choose to preserve slide numbers during the split.
 
 [Usage instructions](PPspliT-howto.pdf) are also available.
 
-**Notice**: the add-in makes heavy use of the system clipboard. Therefore, it
-is very important that you refrain from using it during the split and that no
-programs interfere with the clipboard at all.
+*Notice*: in all releases older than 2.0 the add-in makes heavy use of the
+system clipboard. Therefore, it is very important that you refrain from using it
+during the split and that no programs interfere with the clipboard at all.
+Effective since release 2.0, this requirement has been relaxed, and the system
+clipboard can be safely used while a slide deck is being split.
 
 **Warning**: running the add-in will modify your presentation. Even though it is
 generally possible to revert the changes using the undo feature (Ctrl+Z), it is
@@ -94,19 +96,10 @@ Instead, in PPspliT the same effects are re-implemented on the original shape
 objects.
 * VBA has some sparse bugs here and there, which allow limited or no access to
 shape properties. I needed to work these around to my best.
-* Effects on text frames are especially tricky to apply, because these frames
-may have the text auto-fit feature enabled. Paragraphs that have not appeared
-yet still need to consume room in the text box, or the auto-fit will adjust font
-size to fit just the visible text. I couldn't find an always-working way to
-retrieve the actual font size used by PowerPoint after auto-fitting, therefore
-this has been implemented with some workarounds.
 * Each animation step requires creating a new slide, which is time consuming.
-* Shape properties (e.g., depth, text attributes, etc.) must be matched between
-different slides. Part of this process relies on native copy-pasting. However,
-due to the smart paste features of PowerPoint, a simple copy&paste cycle is not
-always enough to this purpose.
-* For each slide, all the shapes that are supposed to appear later on by means
-of an entry effect must be preliminarly removed.
+* For each animation step, all the shapes that are supposed to appear later on
+by means of a subsequent entry effect or to have disappeared because of a
+preceding exit effect must be appropriately removed.
 
 
 ----
@@ -190,7 +183,10 @@ example, a position property like
 methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
 being applied to its individual shapes.
 6. Duration for emphasis effects (e.g., until next click or until the end of
-the slide): all emphasis effects last until the end of the slide.
+the slide): considering that this property applies to iterations of an emphasis
+effect, which is a dynamic property that PPspliT cannot and is not meant to
+retain, all emphasis effects are simply assumed to last until the end of the
+slide (or occurrence of a subsequent effect applied to the same shape).
 7. Accurate rendering of color effects: they do not perfectly match
 PowerPoint's behavior (which is not obvious to reverse engineer) but still
 provide an acceptable emphasis effect.
@@ -198,12 +194,12 @@ provide an acceptable emphasis effect.
 instead of a whole shape. In general, all those effects whose rendering
 requires separation of the text frame from its parent shape are unlikely to be
 supported.
-9. Text effects applied to paragraphs containing a mixture of standard text and
+9. ~~Text effects applied to paragraphs containing a mixture of standard text and
 equations in the new native PowerPoint 2013 format (i.e., not Equation Editor
-objects).
-10. Accurate alignment of shapes in a group. This is hardly obtainable, as it
+objects).~~
+10. ~~Accurate alignment of shapes in a group. This is hardly obtainable, as it
 depends on PowerPoint's copy&paste behavior. In the affected cases the same
-issue can be experienced with a manual copy&paste operation.
+issue can be experienced with a manual copy&paste operation.~~
 11. Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
 versions of the shapes, thus proportionally scaling all their elements (e.g.,
 shape borders). Instead, PPspliT resizes the native shape, thus preserving its
@@ -212,13 +208,13 @@ _pixelize_ effect, but it may be a little different from expected. This
 difference is enhanced for the case of font scaling for grow/shrinking emphasis
 effects: PPspliT renders this by changing font size by an amount that is a good
 compromise between horizontal and vertical growth/shrink.
-12. Accurate processing of emphasis effects affecting fill/line colors. For
+12. ~~Accurate processing of emphasis effects affecting fill/line colors. For
 reasons which I haven't been able to figure out, sometimes color change
 settings in effects that are still to be processed get corrupted before
-reaching these effects, causing a failure to apply the intended color.
-13. Handling the auto-fit property for text frames, due to some limits in the
+reaching these effects, causing a failure to apply the intended color.~~
+13. ~~Handling the auto-fit property for text frames, due to some limits in the
 interface that PowerPoint offers for this property (in PPT<2007 it is
-totally absent, while in PPT 2007 it seems to work fairly well).
+totally absent, while in PPT 2007 it seems to work fairly well).~~
 14. Accurate rendering of some rotation effects. During the presentation
 PowerPoint rotates shapes around the center of the visible shape body. Instead,
 PPspliT rotates it around the center of the container box. To explain the
@@ -237,9 +233,9 @@ partially supported. In fact, these shapes are turned into placeholders
 (i.e., only slide numbers appearing in special placeholder boxes that are
 defined in slide masters and inserted as headers/footers in the slide deck are
 recognized and supported).
-18. Handling of bullet symbols in itemized lists: bullets may sometimes be lost
+18. ~~Handling of bullet symbols in itemized lists: bullets may sometimes be lost
 or replaced with other symbols due to PowerPoint issues in pasting paragraph
-formats and to the inability to access the picture currently used for a bullet.
+formats and to the inability to access the picture currently used for a bullet.~~
 19. Animations in slide masters.
 20. Something else I am not aware of.
 

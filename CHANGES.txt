@@ -1,3 +1,42 @@
+2.0 (December 2022)
+- Deeply redesigned core engine to eliminate the need to use the system
+clipboard altogether. This definitively addresses issues like #3 and #7, which
+highlighted race conditions triggered by external applications handling the
+system clipboard, and also rules out issues like #12, which highlighted a
+similar problem randomly occurring even in the absence of any applications
+interfering with the clipboard. It is therefore now safe to use the system
+clipboard while a slide deck is being split.
+- Splitting a selection of non-contiguous slides is now supported.
+- Handling of entry/exit effects applied to text paragraphs has been improved.
+In particular:
+  - Ordered lists whose items (or paragraphs) were set to appear in any order
+    different from their natural order resulted in item numbering being mixed
+    up. This is now fixed. Thanks to David Wong for reporting this issue.
+  - Bullets should now be always preserved and font resizing implied by the text
+    auto-fit property should be correctly honored.
+  - Text paragraphs containing a mixture of standard text and equations in the
+    native PowerPoint 2013 format are now supported.
+- Leaner progress dialog box, now consisting of a single progress bar.
+- Improved handling of animation effects that are set for auto-reverse or
+  being rewound after playing.
+- A full regression test suite is now embedded in the PPspliT macro file.
+- Improved code comments.
++------------------------------------------------------------------------------+
+| As a collateral effect of this significant set of changes, starting from     |
+| this release no further development will happen for PowerPoint versions      |
+| prior to 2007 (Windows only). Although this has never been announced in      |
+| advance, the following statements apply:                                     |
+| - I consider unlikely that such versions still have a significant number of  |
+|   users nowadays, making the impact of this change likely negligible.        |
+| - Implementing all the applied changes would be overly demanding compared to |
+|   the benefit of such an activity.                                           |
+| - Support for older PowerPoint versions is not dropped anyway: it is just    |
+|   frozen in its current state: no new features will be added or bug fixes    |
+|   will be applied for that code base.                                        |
++------------------------------------------------------------------------------+
+
+================================
+
 1.27 (April 2022)
 - Preserving some shape properties across slides requires using a more
   persistent shape property than the shape ID (which is regenerated for each
