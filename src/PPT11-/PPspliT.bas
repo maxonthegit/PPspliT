@@ -1,3 +1,4 @@
+Attribute VB_Name = "PPspliT"
 '
 '
 '    _____  _____           _ _ _______
