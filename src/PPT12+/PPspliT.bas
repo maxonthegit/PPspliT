@@ -1312,7 +1312,7 @@ End Sub
 ' in a slide master, not just the "slide number" footer: slide numbers appearing in
 ' such extra shapes will not be processed.
 '
-Private Sub bakeSlideNumbers(slide_range As Collection)
+Private Sub bakeSlideNumbers(slide_range As SlideRange)
     Dim sh As Shape
 
     ProgressForm.infoLabel = "Adjusting slide numbers. This may take some time..."
@@ -1357,10 +1357,10 @@ End Sub
 '   generated (modified slide numbers would otherwise be inherited in all subsequent
 '   slides)
 '
-Private Sub augmentSlideNumbers(slide_number, progressive_slide_count)
+Private Sub augmentSlideNumbers(current_slide As slide, progressive_slide_count)
     Dim sh As Shape
 
-    For Each sh In ActivePresentation.Slides(slide_number).Shapes
+    For Each sh In current_slide.Shapes
         If sh.Type = msoPlaceholder Then
             With sh.PlaceholderFormat
                 If slideNumbersAdjustMode = SLIDENUMBER_SUBINDEX And .Type = ppPlaceholderSlideNumber Then
@@ -1394,7 +1394,18 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
             If Not target_shape Is Nothing Then
                 par = getEffectParagraph(e)
                 If par > 0 Then
+                    ' Completely removing the paragraph (e.g., by clearing its text or
+                    ' making it invisible) is not correct, since it must still
+                    ' take up space to let the rest of the text in the frame stay
+                    ' where it currently is
                     target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Fill.Transparency = 1
+                    ' Sometimes, especially when (small) images are used, bullets
+                    ' stay visible even after executing the above statement. Therefore,
+                    ' here we try again to hide them. Once more, removing them
+                    ' (i.e., clearing them or making them invisible) is not a good idea,
+                    ' because it would cause the corresponding paragraph text to shift
+                    ' leftwards and it would cause numbering in a list to be mixed up.
+                    target_shape.TextFrame2.TextRange.Paragraphs(par).ParagraphFormat.Bullet.Font.Size = 1
                 Else
                     target_shape.Delete
                 End If
@@ -1566,7 +1577,7 @@ End Sub
 ' Main loop
 '
 Sub PPspliT_main()
-    
+
     On Error GoTo error_handler
 
     If Application.Presentations.Count = 0 Then
@@ -1702,6 +1713,7 @@ Sub PPspliT_main()
     ' Iterate over all the slides in the presentation
     For Each current_original_slide In slide_range
         current_original_slide.Tags.Delete "done"
+        split_slides = 0
     
         processed_slides_count = processed_slides_count + 1
         ProgressForm.SlideNumber = "Slide" + Str$(current_original_slide.Tags("originalSlideNumber")) + " (currently" + Str$(current_original_slide.SlideNumber) + ") -" + Str$(processed_slides_count) + " of" + Str$(original_slide_count)
@@ -1786,7 +1798,7 @@ Sub PPspliT_main()
 
             ProgressForm.infoLabel = "Processing entry/exit effects..."
             DoEvents
-
+            
             ' Go again through the animation steps and delete shapes/paragraphs
             ' according to the animation timeline. Note that this
             ' operation cannot be performed earlier, as shapes would
@@ -1795,6 +1807,10 @@ Sub PPspliT_main()
             processed_effects_count = 0
             ' Set current_slide to the first generated duplicate ("Copy 0")
             Set current_slide = current_slide.Parent.Slides(current_original_slide.SlideNumber + 1)
+            
+            split_slides = split_slides + 1
+            augmentSlideNumbers current_slide, split_slides
+            
             For Each current_effect In effect_sequence
                 If (Not splitMouseTriggered) Or isMouseTriggered(current_effect) Then
                     purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
@@ -1803,6 +1819,9 @@ Sub PPspliT_main()
                     current_slide.Tags.Add "done", "1"
                     If current_slide.SlideNumber < ActivePresentation.Slides.Count Then
                         Set current_slide = current_slide.Parent.Slides(current_slide.SlideNumber + 1)
+                        
+                        split_slides = split_slides + 1
+                        augmentSlideNumbers current_slide, split_slides
                     End If
                 End If
                 ' Update the actual visibility status of the current shape/paragraph. Note
@@ -1811,7 +1830,7 @@ Sub PPspliT_main()
                     shapeVisibility.Remove (getFullShapeID(current_effect))
                     shapeVisibility.Add (current_effect.Exit = msoFalse), getFullShapeID(current_effect)
                 End If
-                            
+                
                 processed_effects_count = processed_effects_count + 1
                 setProgressBar processed_slides_count - 0.5 + processed_effects_count / (2 * effect_count), original_slide_count
                 If cancelStatus Then
