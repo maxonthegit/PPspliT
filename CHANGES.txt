@@ -26,8 +26,10 @@ In particular:
 +------------------------------------------------------------------------------+
 | As a collateral effect of this significant set of changes, starting from     |
 | this release no further development will happen for PowerPoint versions      |
-| prior to 2007 (Windows only). Although this has never been announced in      |
-| advance, the following statements apply:                                     |
+| prior to 2007 (Windows only). As of PPspliT release 2.0, even users of       |
+| PowerPoint 2007 may experience some issues.                                  |
+| Although this has never been announced in advance, the following statements  |
+| apply:                                                                       |
 | - I consider unlikely that such versions still have a significant number of  |
 |   users nowadays, making the impact of this change likely negligible.        |
 | - Implementing all the applied changes would be overly demanding compared to |
