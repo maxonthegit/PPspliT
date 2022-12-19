@@ -17,6 +17,8 @@ In particular:
   - Text paragraphs containing a mixture of standard text and equations in the
     native PowerPoint 2013 format are now supported.
 - Leaner progress dialog box, now consisting of a single progress bar.
+- Worked around a known limitation affecting the ability to properly assign
+  fill/line colors for emhpasis effects.
 - Improved handling of animation effects that are set for auto-reverse or
   being rewound after playing.
 - A full regression test suite is now embedded in the PPspliT macro file.
