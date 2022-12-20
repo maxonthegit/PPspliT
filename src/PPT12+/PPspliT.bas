@@ -8,7 +8,7 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.0
+'                    |_| by Massimo Rimondini - version 2.1
 '
 ' first written by Massimo Rimondini in November 2009
 ' last update: December 2022
@@ -80,16 +80,17 @@ Private Function localizeDecimalSeparators(ByVal s As String)
 End Function
 
 '
-' This function looks for a shape in a slide by its ID.
-' It returns Null if no such shape is found.
+' This function looks for a shape in a slide by its ID (which has
+' been previously copied to a tag).
+' It returns Nothing if no such shape is found.
 '
-Private Function findShapeByID(shapeID As Long, slide As slide)
+Private Function findShapeByIDinTag(shapeID As Long, slide As slide)
     Dim s As Shape
     
-    Set findShapeByID = Nothing
+    Set findShapeByIDinTag = Nothing
     For Each s In slide.Shapes
-        If s.id = shapeID Then
-            Set findShapeByID = s
+        If s.Tags("ID") = Str$(shapeID) Then
+            Set findShapeByIDinTag = s
             Exit Function
         End If
     Next s
@@ -111,6 +112,14 @@ Private Sub assignColorBrightness(col1 As ColorFormat, col2)
     Else
         col1.Brightness = col2("Brightness")
     End If
+End Sub
+
+'
+' Similar to assignColorBrightness (and serving the same purpose),
+' but adapted to add a Brightness object to a Collection.
+'
+Private Sub addBrightnessToCollection(cf As ColorFormat, coll As Collection)
+    coll.Add cf.Brightness, "Brightness"
 End Sub
 
 '
@@ -321,7 +330,7 @@ Private Sub shiftAllMotions(effectSequence As Sequence, sh As Shape, shiftX, shi
         ' under consideration (which comes from a different slide). Therefore,
         ' operator "Is" cannot be used to match the shapes whose motion effects
         ' should be updated.
-        If isPathEffect(currentEffect) And currentEffect.Shape.id = sh.id Then
+        If isPathEffect(currentEffect) And currentEffect.Shape.Id = sh.Id Then
             ' This is a motion effect applied to the shape under consideration
             motionPathTokens = Split(currentEffect.Behaviors(1).MotionEffect.Path)
             ' The first character states this is a path motion, therefore I preserve it
@@ -1286,7 +1295,7 @@ Public Function getFullShapeID(e As effect)
     Dim paragraph_number As Integer
     Dim fullShapeID As String
     paragraph_number = getEffectParagraph(e)
-    fullShapeID = LTrim(Str$(e.Shape.id)) + ","
+    fullShapeID = LTrim(Str$(e.Shape.Id)) + ","
     If paragraph_number < 0 Then
         fullShapeID = fullShapeID + "0"
     Else
@@ -1384,7 +1393,7 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
     ' the keys in a collection, here we iterate on each effect instead
     For Each e In timeline
         If Not shape_visible(getFullShapeID(e)) Then
-            Set target_shape = findShapeByID(e.Shape.id, target_slide)
+            Set target_shape = findShapeByIDinTag(e.Shape.Id, target_slide)
             ' Each shape may appear multiple times in the animation timeline,
             ' therefore it might have already been deleted at a previous
             ' iteration.
@@ -1530,14 +1539,17 @@ Private Sub saveAllFinalColors(final_colors As Collection)
         Set final_colors_per_effect = New Collection
         For effect_index = 1 To ActivePresentation.Slides(slide_index).timeline.MainSequence.Count
             Set cf = Nothing
+            cType = -1000
             Set final_colors_for_current_effect = Nothing
             ' Attempt accessing the Color2 attribute, if the effect has one.
             ' Unfortunately, no better way seems to exist other than trying
             ' and detecting an error in the access attempt.
             On Error Resume Next
             Set cf = ActivePresentation.Slides(slide_index).timeline.MainSequence(effect_index).EffectParameters.Color2
+            ' Sometimes the Color2 object may exist but its Type attribute may not
+            cType = ActivePresentation.Slides(slide_index).timeline.MainSequence(effect_index).EffectParameters.Color2.Type
             On Error GoTo 0
-            If Not cf Is Nothing Then
+            If Not cf Is Nothing And cType <> -1000 Then
                 Set final_colors_for_current_effect = New Collection
                 With final_colors_for_current_effect
                     .Add cf.Type, "Type"
@@ -1545,9 +1557,11 @@ Private Sub saveAllFinalColors(final_colors As Collection)
                         .Add cf.RGB, "RGB"
                     Else
                         .Add cf.SchemeColor, "SchemeColor"
-                        On Error Resume Next
-                        .Add cf.Brightness, "Brightness"
-                        On Error GoTo 0
+                        ' Apparently the Brightness attribute is only supported starting
+                        ' from Office 2010 (14.0)
+                        If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
+                            addBrightnessToCollection cf, final_colors_for_current_effect
+                        End If
                     End If
                 End With
             End If
@@ -1555,6 +1569,18 @@ Private Sub saveAllFinalColors(final_colors As Collection)
         Next effect_index
         final_colors.Add final_colors_per_effect, Str$(ActivePresentation.Slides(slide_index).SlideID)
     Next slide_index
+End Sub
+
+'
+' In some cases duplicating a slide results in re-generating the IDs
+' of the shapes it contains. To prevent this, the following function
+' preserves shape IDs into tags.
+'
+Private Sub copyShapeIDsToTags(current_slide As slide)
+    Dim sh As Shape
+    For Each sh In current_slide.Shapes
+        sh.Tags.Add "ID", Str$(sh.Id)
+    Next sh
 End Sub
 
 '
@@ -1727,6 +1753,9 @@ Sub PPspliT_main()
             
             ProgressForm.infoLabel = "Preprocessing animation effects..."
             DoEvents
+        
+            ' Preserve shape IDs in case they are lost
+            copyShapeIDsToTags current_original_slide
             
             Set effect_sequence = current_original_slide.timeline.MainSequence
             effect_count = effect_sequence.Count
@@ -1764,7 +1793,7 @@ Sub PPspliT_main()
 
             ProgressForm.infoLabel = "Duplicating slides and applying emphasis/path effects..."
             DoEvents
-
+            
             ' Create first duplicated slide ("Copy 0"), which will contain
             ' shapes in their initial state
             Set current_slide = current_slide.Duplicate(1)
@@ -1784,7 +1813,7 @@ Sub PPspliT_main()
                 
                 If isEmphasisEffect(current_effect) Then
                     Set final_colors_for_slide = final_colors(Str$(current_original_slide.SlideID))
-                    applyEmphasisEffect effect_sequence, current_effect, findShapeByID(current_effect.Shape.id, current_slide), final_colors_for_slide(Str$(current_effect.Index))
+                    applyEmphasisEffect effect_sequence, current_effect, findShapeByIDinTag(current_effect.Shape.Id, current_slide), final_colors_for_slide(Str$(current_effect.Index))
                 End If
                 
                 processed_effects_count = processed_effects_count + 1
@@ -1867,14 +1896,14 @@ error_handler:
     End If
 End Sub
 
-' The "Adjust slide numbers" check box
-' has been clicked
+' The "Adjust slide numbers" combo box
+' has changed its state
 Sub ASNdDownChanged(ByRef box As IRibbonControl, ByRef dropDownID As String, ByRef selectedIndex As Variant)
     slideNumbersAdjustMode = selectedIndex
 End Sub
 
-' The "Adjust slide numbers" check box
-' is checked by default
+' The "Adjust slide numbers" combo box
+' is set to "Yes" by default
 Sub ASNdDownDefault(ByRef box As IRibbonControl, ByRef selectedItem As Variant)
     selectedItem = SLIDENUMBER_BAKE
     slideNumbersAdjustMode = SLIDENUMBER_BAKE
