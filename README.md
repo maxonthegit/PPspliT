@@ -124,15 +124,14 @@ installers.
 file as follows:
   * Update the release number if required (also in the about dialog box).
   * Save the file (`PPspliT.pptm`).
-  * Copy the updated source code and paste it to file
-  `PPT12+\PPspliT-source_PPT12+.txt`.
-  * Export the same file as a PowerPoint add-in (`PPspliT.ppam`).
+  * Export each module from the Visual Basic for Applications editor into
+  corresponding `.bas`, `.frm` and `.frx` files.
+  * Export the whole file as a PowerPoint add-in (`PPspliT.ppam`).
   * Open `PPspliT.pptm` using the Office 2007 Custom UI Editor or the Office
   RibbonX Editor, update the release number if required, and save the file.
   * Do the same for `PPspliT.ppam`.
-* Apply consistent changes to file `PPT11-\PPspliT.ppt`, save it, paste the
-source code into `PPT11-\PPspliT-source_PPT11-.txt` and export the PPT file as
-a PowerPoint 97-2003 add-in (`PPspliT.ppa`).
+* Apply consistent changes to file `PPT11-\PPspliT.ppt`, save it, export each
+module and export the whole PPT file as a PowerPoint 97-2003 add-in (`PPspliT.ppa`).
 * Edit file `ppsplit_installer.nsi` to refresh the release number if required.
 * Process file `ppsplit_installer.nsi` through NSIS (usually it is enough to
 right-click on the file and select "Compile NSIS script"). File `PPspliT-setup.exe`
