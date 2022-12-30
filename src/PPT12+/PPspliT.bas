@@ -8,7 +8,7 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.1
+'                    |_| by Massimo Rimondini - version 2.2
 '
 ' first written by Massimo Rimondini in November 2009
 ' last update: December 2022
@@ -148,11 +148,17 @@ Private Sub assignColor(col1 As ColorFormat, ByVal col2)
             ' scheme indexes.
             On Error Resume Next
             col1.SchemeColor = col2.SchemeColor
-            ' Apparently the Brightness attribute is only supported starting
-            ' from Office 2010 (14.0)
+            ' Sometimes the scheme color may be associated with a Brightness
+            ' attribute, referred to the color in the first row of the color
+            ' palette (that is, the scheme color).
+            ' Apparently, this attribute is only supported starting
+            ' from Office 2010 (14.0) and, in addition, may sometimes be
+            ' missing altogether. There are no ways I am aware of to determine
+            ' whether the color selected by the user really has this attribute,
+            ' therefore the following code frament is still within the
+            ' "On Error Resume Next" block.
             If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
-                ' The brightness level is referred to the color in the
-                ' first row of the color palette (that is, the scheme color)
+                ' The brightness level is
                 assignColorBrightness col1, col2
             End If
             On Error GoTo 0
@@ -165,16 +171,17 @@ Private Sub assignColor(col1 As ColorFormat, ByVal col2)
             ' scheme indexes.
             On Error Resume Next
             col1.SchemeColor = col2("SchemeColor")
-            ' Apparently the Brightness attribute is only supported starting
-            ' from Office 2010 (14.0)
+            ' Sometimes the scheme color may be associated with a Brightness
+            ' attribute, referred to the color in the first row of the color
+            ' palette (that is, the scheme color).
+            ' Apparently, this attribute is only supported starting
+            ' from Office 2010 (14.0) and, in addition, may sometimes be
+            ' missing altogether. There are no ways I am aware of to determine
+            ' whether the color selected by the user really has this attribute,
+            ' therefore the following code frament is still within the
+            ' "On Error Resume Next" block.
             If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
-                ' The brightness level is referred to the color in the
-                ' first row of the color palette (that is, the scheme color)
-                On Error Resume Next
-                ' It may still be the case that the col2 collection does not
-                ' have any "Brightness" elements
                 assignColorBrightness col1, col2
-                On Error GoTo 0
             End If
             On Error GoTo 0
         End If
@@ -1556,12 +1563,21 @@ Private Sub saveAllFinalColors(final_colors As Collection)
                     If cf.Type = msoColorTypeRGB Then
                         .Add cf.RGB, "RGB"
                     Else
+                        On Error Resume Next
                         .Add cf.SchemeColor, "SchemeColor"
-                        ' Apparently the Brightness attribute is only supported starting
-                        ' from Office 2010 (14.0)
+                        ' Sometimes the scheme color may be associated with a Brightness
+                        ' attribute, referred to the color in the first row of the color
+                        ' palette (that is, the scheme color).
+                        ' Apparently, this attribute is only supported starting
+                        ' from Office 2010 (14.0) and, in addition, may sometimes be
+                        ' missing altogether. There are no ways I am aware of to determine
+                        ' whether the color selected by the user really has this attribute,
+                        ' therefore the following code frament is still within the
+                        ' "On Error Resume Next" block.
                         If Int(Mid$(Application.Version, 1, Len(Application.Version) - 2)) > 12 Then
                             addBrightnessToCollection cf, final_colors_for_current_effect
                         End If
+                        On Error GoTo 0
                     End If
                 End With
             End If
