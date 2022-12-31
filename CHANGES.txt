@@ -1,3 +1,15 @@
+2.2 (December 2022)
+- Fixed a bug that caused PPspliT to failed at the initialization stage in
+  the presence of emphasis animation effects affecting shape colors with
+  a target color taken from the slide color scheme. This happened regardless
+  of whether the triggering animation effects occurred in the slides selected
+  for being split or not. Thanks to David Doty for highlighting this issue.
+- Slightly improved error reporting for failures occurring during the
+  initialization stage.
+- Updated regression tests to include emphasis effects with a target color
+  from the slide color scheme as well as text paragraphs with a variety of
+  bullet types and a structure deeper than 5 levels.
+
 2.1 (December 2022)
 - Minor bug fixes.
 - Restored full functionality for PowerPoint 2007.
