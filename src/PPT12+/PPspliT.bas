@@ -1899,11 +1899,18 @@ Sub PPspliT_main()
     Exit Sub
     
 error_handler:
-    resp = MsgBox("Unfortunately, an unrecoverable error has occurred while splitting." & vbCrLf & _
-                  "- Error code: " & Str$(Err.Number) & vbCrLf & _
-                  "- Error description: " & Err.Description & vbCrLf & _
-                  "- Slide number: " & current_original_slide.Tags("originalSlideNumber") & " (original) - " & Str$(current_original_slide.SlideNumber) & " (actual)" & vbCrLf & _
-                  "Would you like to continue anyway (discouraged)?", vbYesNo, "Fatal error")
+    If current_original_slide Is Nothing Then
+        resp = MsgBox("Unfortunately, an unrecoverable error has occurred while PPspliT was initializing." & vbCrLf & _
+                      "- Error code: " & Str$(Err.Number) & vbCrLf & _
+                      "- Error description: " & Err.Description & vbCrLf & _
+                      "Would you like to continue anyway (discouraged)?", vbYesNo, "Fatal error")
+    Else
+        resp = MsgBox("Unfortunately, an unrecoverable error has occurred while splitting." & vbCrLf & _
+                      "- Error code: " & Str$(Err.Number) & vbCrLf & _
+                      "- Error description: " & Err.Description & vbCrLf & _
+                      "- Slide number: " & current_original_slide.Tags("originalSlideNumber") & " (original) - " & Str$(current_original_slide.SlideNumber) & " (actual)" & vbCrLf & _
+                      "Would you like to continue anyway (discouraged)?", vbYesNo, "Fatal error")
+    End If
     If resp = vbYes Then
         Resume Next
     Else
