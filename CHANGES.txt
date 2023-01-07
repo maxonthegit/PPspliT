@@ -1,5 +1,5 @@
 2.2 (December 2022)
-- Fixed a bug that caused PPspliT to failed at the initialization stage in
+- Fixed a bug that caused PPspliT to fail at the initialization stage in
   the presence of emphasis animation effects affecting shape colors with
   a target color taken from the slide color scheme. This happened regardless
   of whether the triggering animation effects occurred in the slides selected
