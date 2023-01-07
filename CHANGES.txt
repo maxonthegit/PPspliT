@@ -1,3 +1,13 @@
+2.3 (January 2023)
+- In some rare cases slide decks may contain animation effects applied to
+  empty paragraphs, which PowerPoint generally forbids at the user interface
+  level. In even rarer cases, such animated empty paragraphs may occur at the
+  end of a text frame, which causes PPspliT to fail because empty paragraphs
+  at the end of a text frame are not even included in the total paragraphs
+  count. Thanks to Jake Lee for pointing out this issue (in
+  https://github.com/maxonthegit/PPspliT/issues/16), for which a workaround
+  is now implemented.
+
 2.2 (December 2022)
 - Fixed a bug that caused PPspliT to fail at the initialization stage in
   the presence of emphasis animation effects affecting shape colors with

@@ -8,10 +8,10 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.2
+'                    |_| by Massimo Rimondini - version 2.3
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: December 2022
+' last update: January 2023
 ' Source code for PowerPoint 2007+
 '
 '
@@ -431,7 +431,18 @@ Private Sub applyEmphasisEffect(seq As Sequence, e As effect, sh As Shape, final
     shTextRange = Null
     shTextRange2 = Null
     If ePar > 0 Then
-        ' This effect applies to a text paragraph
+        ' This effect applies to a text paragraph.
+        ' In some rare cases, the effect may be improperly applied to an
+        ' empty paragraph, which is generally forbidden by PowerPoint.
+        ' Unfortunately, empty paragraphs occurring at the end of a text
+        ' frame do not contribute to the total paragraphs count: as a
+        ' consequence, the index of the paragraph the effect
+        ' is applied to may sometimed exceed the total paragraph count.
+        ' In this case the subroutine simply silently exits.
+        If ePar > sh.TextFrame.TextRange.Paragraphs.Count Then
+            On Error GoTo 0
+            Exit Sub
+        End If
         Set shTextRange = sh.TextFrame.TextRange.Paragraphs(ePar)
         Set shTextRange2 = sh.TextFrame2.TextRange.Paragraphs(ePar)
     Else
@@ -1287,7 +1298,6 @@ Private Function getEffectParagraph(e As effect)
     On Error Resume Next
     ' The following assignment may fail because the Paragraph property does not
     ' exist at all for those effects that are applied to shapes instead of text.
-    ' But, was this truly expected by design? :-?
     paragraph_idx = e.Paragraph
     On Error GoTo 0
     getEffectParagraph = paragraph_idx
@@ -1410,18 +1420,21 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
             If Not target_shape Is Nothing Then
                 par = getEffectParagraph(e)
                 If par > 0 Then
-                    ' Completely removing the paragraph (e.g., by clearing its text or
-                    ' making it invisible) is not correct, since it must still
-                    ' take up space to let the rest of the text in the frame stay
-                    ' where it currently is
-                    target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Fill.Transparency = 1
-                    ' Sometimes, especially when (small) images are used, bullets
-                    ' stay visible even after executing the above statement. Therefore,
-                    ' here we try again to hide them. Once more, removing them
-                    ' (i.e., clearing them or making them invisible) is not a good idea,
-                    ' because it would cause the corresponding paragraph text to shift
-                    ' leftwards and it would cause numbering in a list to be mixed up.
-                    target_shape.TextFrame2.TextRange.Paragraphs(par).ParagraphFormat.Bullet.Font.Size = 1
+                    ' Same consistency check as in function applyEmphasisEffect
+                    If par <= target_shape.TextFrame.TextRange.Paragraphs.Count Then
+                        ' Completely removing the paragraph (e.g., by clearing its text or
+                        ' making it invisible) is not correct, since it must still
+                        ' take up space to let the rest of the text in the frame stay
+                        ' where it currently is
+                        target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Fill.Transparency = 1
+                        ' Sometimes, especially when (small) images are used, bullets
+                        ' stay visible even after executing the above statement. Therefore,
+                        ' here we try again to hide them. Once more, removing them
+                        ' (i.e., clearing them or making them invisible) is not a good idea,
+                        ' because it would cause the corresponding paragraph text to shift
+                        ' leftwards and it would cause numbering in a list to be mixed up.
+                        target_shape.TextFrame2.TextRange.Paragraphs(par).ParagraphFormat.Bullet.Font.Size = 1
+                    End If
                 Else
                     target_shape.Delete
                 End If
