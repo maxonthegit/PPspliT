@@ -172,7 +172,8 @@ limits or bugs.
 1. Slide transitions, as they are meant to smoothen slide changes and have no
 persistent effects on their contents.
 2. Shape dimming after playing an effect.
-3. Effects triggered by mouse clicks on a specific shape.
+3. Effects and actions triggered by mouse clicks on a specific shape, including
+cross-slide hyperlinks.
 4. The shaking and blinking emphasis effects, due to a PowerPoint bug.
 5. Processing of effects applied to individual shapes of SmartArt objects or
 other composite objects (e.g., charts) because, to my knowledge, the interface
