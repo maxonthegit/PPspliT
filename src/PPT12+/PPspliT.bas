@@ -1434,6 +1434,27 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
                         ' because it would cause the corresponding paragraph text to shift
                         ' leftwards and it would cause numbering in a list to be mixed up.
                         target_shape.TextFrame2.TextRange.Paragraphs(par).ParagraphFormat.Bullet.Font.Size = 1
+                        ' Hide highlighing as well. As confirmed in
+                        ' https://www.rdpslides.com/pptfaq/FAQ00776_Highlight_text_in_PowerPoint.htm,
+                        ' there seem to be no native ways in PowerPoint VBA to
+                        ' clear highlighting. The workaround implemented below is
+                        ' inspired by https://stackoverflow.com/questions/62019669/unhighlighting-text-and-preserve-all-other-font-settings
+                        ' The following code fragment is prone to errors, therefore
+                        ' it is wrapped in an "On Error" statement
+                        On Error Resume Next
+                        Dim r As TextRange2
+                        ' Selecting a text range requires it to be visible in
+                        ' the current slide view
+                        ActiveWindow.View.GotoSlide target_shape.Parent.SlideIndex
+                        For Each r In target_shape.TextFrame2.TextRange.Paragraphs(par).Runs
+                            For i = 1 To 2
+                                If r.Font.Highlight.Type <> msoColorTypeMixed Then
+                                    r.Select
+                                    Application.CommandBars.ExecuteMso ("TextHighlightColorPickerLicensed")
+                                End If
+                            Next i
+                        Next r
+                        On Error GoTo 0
                     End If
                 Else
                     target_shape.Delete
