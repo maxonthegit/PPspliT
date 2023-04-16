@@ -8,10 +8,10 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.3
+'                    |_| by Massimo Rimondini - version 2.4
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: January 2023
+' last update: April 2023
 ' Source code for PowerPoint 2007+
 '
 '
@@ -1628,6 +1628,52 @@ Private Sub setProgressBar(current_value, max_value)
     DoEvents
 End Sub
 
+' Fix cross-slide hyperlinks that may have been broken or may point to
+' a wrong slide due to slides being renumbered when split.
+Private Sub fixHyperlinks(old_to_new_index As Collection)
+    Dim current_slide As slide
+    Dim current_shape As Shape
+    For Each current_slide In ActiveWindow.Presentation.Slides
+        For Each current_shape In current_slide.Shapes
+            With current_shape.ActionSettings(ppMouseClick).Hyperlink
+                If .Address = "" And .SubAddress <> "" Then
+                    ' The target hyperlink address is empty, which is a likely
+                    ' evidence that this a hyperlink between elements (slides)
+                    ' in the same file.
+                    ' A comprehensive description of the SubAddress hyperlink
+                    ' format is available at http://www.rdpslides.com/pptfaq/FAQ00162_Hyperlink_-SubAddress_-_How_to_interpret_it.htm
+                    hyperlink_arguments = Split(.SubAddress, ",")
+                    If UBound(hyperlink_arguments) - LBound(hyperlink_arguments) + 1 = 3 Then
+                        ' Format is likely as follows:
+                        ' slideID,slideIndex,slideTitle
+                        ' Note that all the three fields are necessarily populated
+                        
+                        ' Since the three arguments in the hyperlink are considered
+                        ' in the order in which they appear, each being a fallback
+                        ' in case the preceding one is not found, slideID is left
+                        ' untouched: if a slide with the originally assigned ID still
+                        ' exists, it is fine to have the hyperlink point to that slide
+                        new_slide_id = hyperlink_arguments(0)
+                        
+                        ' If the slide index fallback is used instead, its number
+                        ' must be updated
+                        new_slide_index = hyperlink_arguments(1)
+                        If new_slide_index <> "" Then
+                            new_slide_index = Right$(Str$(old_to_new_index(new_slide_index)), Len(Str$(old_to_new_index(new_slide_index))) - 1)
+                        End If
+                        
+                        ' Also the slide title can be left untouched, as titles are
+                        ' not altered during the split
+                        new_slide_title = hyperlink_arguments(2)
+                        
+                        .SubAddress = new_slide_id + "," + new_slide_index + "," + new_slide_title
+                    End If
+                End If
+            End With
+        Next current_shape
+    Next current_slide
+End Sub
+
 '
 ' Main loop
 '
@@ -1666,6 +1712,16 @@ Sub PPspliT_main()
     ' in a separate Collection for being used later on.
     Dim final_colors As Collection
     saveAllFinalColors final_colors
+    
+    ' Remember how "key" slides that are subject to
+    ' being split are renumbered in order to fix cross-slide
+    ' hyperlinks later on
+    Dim slide_index_old_to_new As Collection
+    Set slide_index_old_to_new = New Collection
+    For Each s In ActiveWindow.Presentation.Slides
+        slide_index_old_to_new.Add s.SlideIndex, Right$(Str$(s.SlideIndex), Len(Str$(s.SlideIndex)) - 1)
+    Next s
+    
 
     ' Determine the set of slides to be split: selected slides (if any)
     ' or the whole slide deck.
@@ -1750,7 +1806,7 @@ Sub PPspliT_main()
     Dim current_slide As slide, current_original_slide As slide
     Dim effect_sequence As Sequence
     Dim current_effect As effect
-    Dim original_slide_count As Integer, effect_count As Integer
+    Dim original_slide_index As Integer, original_slide_count As Integer, effect_count As Integer
     Dim processed_slides_count As Integer, processed_effects_count As Integer
     
     Dim shapeVisibility As Collection
@@ -1761,7 +1817,10 @@ Sub PPspliT_main()
     
     ' Preserve the actual slide number for future usage
     For Each current_slide In slide_range
-        current_slide.Tags.Add "originalSlideNumber", Str$(current_slide.SlideIndex)
+        ' Converting a number to a string adds a space at the beginning
+        ' (to reserve room for a possible negative sign). The space is removed
+        ' here
+        current_slide.Tags.Add "originalSlideNumber", Right$(Str$(current_slide.SlideIndex), Len(Str$(current_slide.SlideIndex)) - 1)
     Next current_slide
 
 
@@ -1769,9 +1828,18 @@ Sub PPspliT_main()
     For Each current_original_slide In slide_range
         current_original_slide.Tags.Delete "done"
         split_slides = 0
+        
+        ' Store the mapping between the slide index that current_original_slide
+        ' had before being split (which is stored in tag "originalSlideIndex")
+        ' and the new slide index resulting from slide duplications that
+        ' made current_original_slide move in the slide sequence.
+        ' Elements in a Collection object cannot be updated, therefore it is
+        ' necessary to first remove and then re-add them with the updated value.
+        slide_index_old_to_new.Remove current_original_slide.Tags("originalSlideNumber")
+        slide_index_old_to_new.Add current_original_slide.SlideIndex, current_original_slide.Tags("originalSlideNumber")
     
         processed_slides_count = processed_slides_count + 1
-        ProgressForm.SlideNumber = "Slide" + Str$(current_original_slide.Tags("originalSlideNumber")) + " (currently" + Str$(current_original_slide.SlideNumber) + ") -" + Str$(processed_slides_count) + " of" + Str$(original_slide_count)
+        ProgressForm.SlideNumber = "Slide " + Str$(current_original_slide.Tags("originalSlideNumber")) + " (currently" + Str$(current_original_slide.SlideNumber) + ") -" + Str$(processed_slides_count) + " of" + Str$(original_slide_count)
         DoEvents
         
         preprocessEffects current_original_slide, final_colors
@@ -1782,7 +1850,7 @@ Sub PPspliT_main()
             
             ProgressForm.infoLabel = "Preprocessing animation effects..."
             DoEvents
-        
+
             ' Preserve shape IDs in case they are lost
             copyShapeIDsToTags current_original_slide
             
@@ -1902,11 +1970,16 @@ Sub PPspliT_main()
                 purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
                 purgeEffects current_slide
             End If
-                
+
+            ' At this point the original slide is deleted so that
+            ' its place is taken by "Copy 0"
             current_original_slide.Delete
         End If
         
     Next current_original_slide
+    
+    ' Adjust hyperlinks
+    fixHyperlinks slide_index_old_to_new
                         
     Unload ProgressForm
     Exit Sub
