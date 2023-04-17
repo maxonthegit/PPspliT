@@ -173,6 +173,8 @@ limits or bugs.
 persistent effects on their contents.
 2. Shape dimming after playing an effect.
 3. Effects and some actions triggered by mouse clicks on a specific shape.
+Cross-slide hyperlinks are supported and updated when slides are renumbered
+during the split, but slide previews using the [zoom feature](https://support.microsoft.com/en-us/office/use-zoom-for-powerpoint-to-bring-your-presentation-to-life-9d6c58cd-2125-4d29-86b1-0097c7dc47d7) are not.
 4. The shaking and blinking emphasis effects, due to a PowerPoint bug.
 5. Processing of effects applied to individual shapes of SmartArt objects or
 other composite objects (e.g., charts) because, to my knowledge, the interface
