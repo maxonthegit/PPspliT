@@ -1434,7 +1434,7 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
                         ' because it would cause the corresponding paragraph text to shift
                         ' leftwards and it would cause numbering in a list to be mixed up.
                         target_shape.TextFrame2.TextRange.Paragraphs(par).ParagraphFormat.Bullet.Font.Size = 1
-                        ' Hide highlighing as well. As confirmed in
+                        ' Hide text highlighting as well. As confirmed in
                         ' https://www.rdpslides.com/pptfaq/FAQ00776_Highlight_text_in_PowerPoint.htm,
                         ' there seem to be no native ways in PowerPoint VBA to
                         ' clear highlighting. The workaround implemented below is
@@ -1447,6 +1447,11 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
                         ' the current slide view
                         ActiveWindow.View.GotoSlide target_shape.Parent.SlideIndex
                         For Each r In target_shape.TextFrame2.TextRange.Paragraphs(par).Runs
+                            ' Running the TextHighlightColorPickerLicensed command bar
+                            ' item may have two effects: 1) applying the last used
+                            ' highlight color (in case a different one or none was
+                            ' applied) or 2) remove the highlighting. Depending on
+                            ' the outcome, we may need to run the item twice
                             For i = 1 To 2
                                 If r.Font.Highlight.Type <> msoColorTypeMixed Then
                                     r.Select
@@ -1654,43 +1659,53 @@ End Sub
 Private Sub fixHyperlinks(old_to_new_index As Collection)
     Dim current_slide As slide
     Dim current_shape As Shape
+    Dim hyperlink_updated As Boolean
     For Each current_slide In ActiveWindow.Presentation.Slides
         For Each current_shape In current_slide.Shapes
-            With current_shape.ActionSettings(ppMouseClick).Hyperlink
-                If .Address = "" And .SubAddress <> "" Then
-                    ' The target hyperlink address is empty, which is a likely
-                    ' evidence that this a hyperlink between elements (slides)
-                    ' in the same file.
-                    ' A comprehensive description of the SubAddress hyperlink
-                    ' format is available at http://www.rdpslides.com/pptfaq/FAQ00162_Hyperlink_-SubAddress_-_How_to_interpret_it.htm
-                    hyperlink_arguments = Split(.SubAddress, ",")
-                    If UBound(hyperlink_arguments) - LBound(hyperlink_arguments) + 1 = 3 Then
-                        ' Format is likely as follows:
-                        ' slideID,slideIndex,slideTitle
-                        ' Note that all the three fields are necessarily populated
-                        
-                        ' Since the three arguments in the hyperlink are considered
-                        ' in the order in which they appear, each being a fallback
-                        ' in case the preceding one is not found, slideID is left
-                        ' untouched: if a slide with the originally assigned ID still
-                        ' exists, it is fine to have the hyperlink point to that slide
-                        new_slide_id = hyperlink_arguments(0)
-                        
-                        ' If the slide index fallback is used instead, its number
-                        ' must be updated
-                        new_slide_index = hyperlink_arguments(1)
-                        If new_slide_index <> "" Then
-                            new_slide_index = Right$(Str$(old_to_new_index(new_slide_index)), Len(Str$(old_to_new_index(new_slide_index))) - 1)
+            ' Shape groups don't have ActionSettings
+            If current_shape.Type <> msoGroup Then
+                With current_shape.ActionSettings(ppMouseClick).Hyperlink
+                    If .Address = "" And .SubAddress <> "" Then
+                        hyperlink_updated = False
+                        ' The target hyperlink address is empty, which is a likely
+                        ' evidence that this a hyperlink between elements (slides)
+                        ' in the same file.
+                        ' A comprehensive description of the SubAddress hyperlink
+                        ' format is available at http://www.rdpslides.com/pptfaq/FAQ00162_Hyperlink_-SubAddress_-_How_to_interpret_it.htm
+                        hyperlink_arguments = Split(.SubAddress, ",")
+                        If UBound(hyperlink_arguments) - LBound(hyperlink_arguments) + 1 = 3 Then
+                            ' Format is likely as follows:
+                            ' slideID,slideIndex,slideTitle
+                            ' Any (but not all) of the above fields may be empty.
+                            ' The target slide is identified by considering the three
+                            ' arguments in the hyperlink in the order in which they
+                            ' appear, each being a fallback in case no slides matching
+                            ' the preceding one are found
+                            
+                            ' slideID is left untouched: in fact, if a slide with the
+                            ' originally assigned ID still exists after splitting, it
+                            ' is fine to have the hyperlink point to that slide
+                            new_slide_id = hyperlink_arguments(0)
+                            
+                            ' If the slide index is used instead, its number must be
+                            ' updated
+                            new_slide_index = hyperlink_arguments(1)
+                            If new_slide_index <> "" Then
+                                ' Make sure to suppress the initial space character in the
+                                ' conversion from Integer to String
+                                new_slide_index = Right$(Str$(old_to_new_index(new_slide_index)), Len(Str$(old_to_new_index(new_slide_index))) - 1)
+                                hyperlink_updated = True
+                            End If
+                            
+                            ' Also the slide title can be left untouched, as titles are
+                            ' not altered during the split
+                            new_slide_title = hyperlink_arguments(2)
+                            
+                            If hyperlink_updated Then .SubAddress = new_slide_id + "," + new_slide_index + "," + new_slide_title
                         End If
-                        
-                        ' Also the slide title can be left untouched, as titles are
-                        ' not altered during the split
-                        new_slide_title = hyperlink_arguments(2)
-                        
-                        .SubAddress = new_slide_id + "," + new_slide_index + "," + new_slide_title
                     End If
-                End If
-            End With
+                End With
+            End If
         Next current_shape
     Next current_slide
 End Sub
