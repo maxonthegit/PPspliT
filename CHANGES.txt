@@ -1,3 +1,12 @@
+2.4 (April 2023)
+- Fixed cross-slide hyperlinks after splitting. Previously, they were broken
+  because of slide index changes occurring during the split. Thanks to
+  Rolf Rabenseifner for pointing out this issue.
+- Text highlighting now (mostly) supported: its visibility is now
+  synchronized with that of the text it is applied to. Some glitches may
+  still occur because PowerPoint VBA does not have any native methods to
+  clear/hide the highlighting. This fixes #17.
+
 2.3 (January 2023)
 - In some rare cases slide decks may contain animation effects applied to
   empty paragraphs, which PowerPoint generally forbids at the user interface
