@@ -194,7 +194,6 @@ methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
 being applied to its individual shapes. Shape groups *are* of course supported.
 
 6. *For emphasis effects, repetition and "Until next click" duration*
-
 &mdash; The *duration* parameter of emphasis effects normally indicates the
 time that it takes to play the effect until its end. For very few effect
 types, this same setting indicates the time for which the effect persists
