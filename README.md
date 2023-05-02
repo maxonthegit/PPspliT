@@ -169,60 +169,116 @@ portable documents.
 minor glitches may exist with versions prior to 2007, sometimes due to VBA
 limits or bugs.
 * Some functions are knowingly unsupported and may never be implemented:
-1. Slide transitions, as they are meant to smoothen slide changes and have no
-persistent effects on their contents.
-2. Shape dimming after playing an effect.
-3. Effects and some actions triggered by mouse clicks on a specific shape.
-Cross-slide hyperlinks are supported and updated when slides are renumbered
-during the split, but slide previews using the [zoom feature](https://support.microsoft.com/en-us/office/use-zoom-for-powerpoint-to-bring-your-presentation-to-life-9d6c58cd-2125-4d29-86b1-0097c7dc47d7) are not.
-4. The shaking and blinking emphasis effects, due to a PowerPoint bug.
-5. Processing of effects applied to individual shapes of SmartArt objects or
-other composite objects (e.g., charts) because, to my knowledge, the interface
-exposed by VBA to alter the properties of such shapes is somewhat limited. For
-example, a position property like
+1. *Slide transitions*
+&mdash; Since they are meant to smoothen slide changes, they have no
+persistent effects on their contents, hence no action that needs to be
+rendered by PPspliT.
+
+2. *Shape dimming after playing an effect*
+
+3. *Most effects/actions triggered by mouse clicks on a specific shape*
+&mdash; As an exception, cross-slide hyperlinks *are* supported: their targets
+are updated to point to the originally meant slides even after they have
+been renumbered by the split. Slide previews using the
+[zoom feature](https://support.microsoft.com/en-us/office/use-zoom-for-powerpoint-to-bring-your-presentation-to-life-9d6c58cd-2125-4d29-86b1-0097c7dc47d7)
+are *not* supported anyway, meaning that they may become broken after splitting.
+
+4. *The shaking and blinking emphasis effects*
+&mdash; This is due to a PowerPoint bug.
+
+5. *Effects applied to individual shapes of composite objects (SmartArt, charts)*
+&mdash; To my knowledge, the interface exposed by VBA to alter the properties of
+such shapes is somewhat limited. For example, a position property like
 `Selection.ShapeRange(1).SmartArt.Nodes(1).Shapes(1).Left` is read-only, and
 methods like `ScaleHeight` or `Cut` affect the whole SmartArt object despite
-being applied to its individual shapes.
-6. Duration for emphasis effects (e.g., until next click or until the end of
-the slide): considering that this property applies to iterations of an emphasis
-effect, which is a dynamic property that PPspliT cannot and is not meant to
-retain, all emphasis effects are simply assumed to last until the end of the
-slide (or occurrence of a subsequent effect applied to the same shape).
-7. Accurate rendering of color effects: they do not perfectly match
-PowerPoint's behavior (which is not obvious to reverse engineer) but still
-provide an acceptable emphasis effect.
-8. Most emphasis and motion effects that apply to a single text paragraph
-instead of a whole shape. In general, all those effects whose rendering
-requires separation of the text frame from its parent shape are unlikely to be
-supported.
-9. Rasterized shape scaling. Indeed, PowerPoint applies effects to rasterized
-versions of the shapes, thus proportionally scaling all their elements (e.g.,
-shape borders). Instead, PPspliT resizes the native shape, thus preserving its
-components (e.g., border thickness). The result is better because there is no
-_pixelize_ effect, but it may be a little different from expected. This
-difference is enhanced for the case of font scaling for grow/shrinking emphasis
-effects: PPspliT renders this by changing font size by an amount that is a good
-compromise between horizontal and vertical growth/shrink.
-10. Accurate rendering of some rotation effects. During the presentation
-PowerPoint rotates shapes around the center of the visible shape body. Instead,
-PPspliT rotates it around the center of the container box. To explain the
-difference, consider an arc, whose container box is the rectangle (or,
-possibly, square) that encloses the full circle: at slideshow time PowerPoint
-would rotate the arc around the center of the arc stroke itself, whereas
-PPspliT would rotate it around the center of the container box, which is
-usually larger, thus giving the impression that the visible shape (the arc)
-has "wandered around".
-11. Exit/entry effects applied to shapes that are part of a slide layout are only
-partially supported. In fact, these shapes are turned into placeholders
+being applied to its individual shapes. Shape groups *are* of course supported.
+
+6. *For emphasis effects, repetition and "Until next click" duration*
+
+&mdash; The *duration* parameter of emphasis effects normally indicates the
+time that it takes to play the effect until its end. For very few effect
+types, this same setting indicates the time for which the effect persists
+on its target shape instead. Effects that are not persistent (i.e., they
+have an established duration in seconds) are simply ignored by PPspliT. Any
+other emphasis effects are assumed to last until the end of the slide (or
+until a subsequent effect is applied to the same slide). This means that
+emphasis effects that last "until next click" are *not* supported and are
+handled in the same way as effects that last "until end of slide".
+On the other hand, the *repeat* setting allows to loop the effect's action
+for an established number of iterations or, alternatively, until the next mouse
+click or the end of the current slide. Since effect loops don't have any
+meaningful outcome on a statically rendered slide, PPspliT simply ignores
+this setting and assumes that all emphasis effects are applied once (i.e.,
+without loops).
+
+7. *Accurate rendering of color effects*
+&mdash; PowerPoint implements color change effects in a way that is honestly
+hard for me to reverse engineer. PPspliT approximates these effects but the
+final applied color may not perfectly coincide with the one natively applied
+by PowerPoint.
+
+8. *Many emphasis and motion effects that apply to a single text paragraph
+instead of a whole shape*
+&mdash; In general, all those effects whose rendering requires separation of
+the text frame from its parent shape are unlikely to be supported.
+
+9. *Rasterized shape scaling and non-proportional text resizing*
+&mdash; PowerPoint applies any effects to rasterized versions of the shapes. As
+a consequence, grow/shrink effects affect all the elements of a shape
+(including, e.g., shape border thickness) and not necessarily preserve the
+aspect ratio. PPspliT resizes the native shape instead, thus preserving its
+components (including border thickness) and resulting in a sharper rendering,
+because the native vector shapes are preserved and there is no interpolation
+introduced by resizing or rotation effects. While this is generally welcome,
+the final result may sometimes differ from the intended one. Most evidently,
+PPspliT only supports proportional growing/shrinking of text elements:
+if a grow/shrink effect occurs on a text element and is set to only affect it
+vertically or horizontally, PPspliT renders it by adjusting the font size by
+an amount that is a good compromise between horizontal and vertical growth/shrink,
+but no "compression" or "expansion" of the text occurs.
+
+10. *Accurate rendering of some rotation effects*
+&mdash; When a slide show is played, PowerPoint rotates shapes around the
+center of the visible shape body. Instead, PPspliT rotates them around the
+center of the container box. Sometimes the container box may be larger than the
+visible shape, resulting in a different center of rotation being applied. To
+explain the difference, consider an arc, whose container box is the rectangle
+(or, possibly, square) that encloses the full circle: at slideshow time
+PowerPoint can rotate the arc around the center of the arc stroke itself,
+whereas PPspliT would rotate it around the center of the container box: since
+the latter is generally (much) larger than the visible arc, the final
+impression is that the visible shape (the arc) has "wandered around".
+
+11. *Exit/entry effects applied to shapes that are part of a slide layout are only
+partially supported*
+&mdash; In fact, these shapes are turned into placeholders
 (instead of disappearing altogether) when one attempts to delete them.
-12. Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
-<=2003 using the Microsoft Office Compatibility Pack.
-13. Adjustment of (dynamic) slide numbers that appear in standard text boxes
-(i.e., only slide numbers appearing in special placeholder boxes that are
-defined in slide masters and inserted as headers/footers in the slide deck are
-recognized and supported).
-14. Animations in slide masters.
-15. Something else I am not aware of.
+
+12. *Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
+<=2003 using the Microsoft Office Compatibility Pack*
+&mdash; This is a very old special condition and is never expected to occur.
+
+13. *Adjustment of (dynamic) slide numbers that appear in standard text boxes*
+&mdash; Although dynamically updated slide numbers can be inserted in any text
+paragraph, PPspliT is only able to adjust them (i.e., preserve a numbering that
+is coherent with the one of the original slides even after splitting) if such
+numbers appear in special placeholder boxes defined in slide masters and
+inserted as headers/footers in the slide deck.
+
+14. *Animations in slide masters*
+
+15. *Animation effects whose order is strictly dependent on timing*
+&mdash; Animation effects can be played after a mouse click ("on click"), after
+the preceding effect has ended ("after previous") or at the same time as a
+preceding effect ("with previous"). While ordering of the effect outcomes is
+strictly defined in the first two cases, it may depend on timing in the third
+case. For example, if effect B follows effect A in the animation sequence, both
+effects are set to play "with previous" but effect A has a *delay* set to 1
+second whereas effect B has no delay, effect B is played before effect A.
+PPspliT does not consider this kind of reordering, and assumes that effects are
+always played in the same order in which they appear in the animation sequence.
+
+16. *Something else I am not aware of*
 
 ---
 
