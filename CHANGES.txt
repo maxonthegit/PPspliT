@@ -1,3 +1,23 @@
+2.5 (May 2023)
+- Fixed a bug that caused PPspliT to crash if executed on a completetly
+  empty presentation (i.e., with no slides).
+- Introducing support for cross-slide hyperlinks pointing to the previous
+  or next slide: such hyperlinks have both the slide ID and the slide
+  index set to -1, which was unhandled before. Thanks to Rolf Rabenseifner
+  for highlighting this issue.
+- Fixed a bug in handling invalid cross-slide hyperlinks pointing to a
+  non-existent slide index. This might happen in case a previously existent
+  target slide is deleted after creating the hyperlink, and the overall
+  slide deck becomes shorter than the index the hyperlink points to.
+  Thanks again to Rolf Rabenseifner for submitting examples that revealed
+  this issue.
+- Fixed a bug in handling animation effects with the "hide after animation"
+  property set (the initial visibility state of the shape could have been
+  wrong).
+- Improved handling of a few emphasis effects that can have a temporary
+  effect on the shapes they are applied to.
+
+
 2.4 (April 2023)
 - Fixed cross-slide hyperlinks after splitting. Previously, they were broken
   because of slide index changes occurring during the split. Thanks to
