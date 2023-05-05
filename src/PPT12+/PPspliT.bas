@@ -8,10 +8,10 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.4
+'                    |_| by Massimo Rimondini - version 2.5
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: April 2023
+' last update: May 2023
 ' Source code for PowerPoint 2007+
 '
 '
@@ -89,7 +89,7 @@ Private Function findShapeByIDinTag(shapeID As Long, slide As slide)
     
     Set findShapeByIDinTag = Nothing
     For Each s In slide.Shapes
-        If s.Tags("ID") = Str$(shapeID) Then
+        If s.Tags("PPspliT_ID") = Str$(shapeID) Then
             Set findShapeByIDinTag = s
             Exit Function
         End If
@@ -1373,6 +1373,19 @@ Private Sub bakeSlideNumbers(slide_range As SlideRange)
 End Sub
 
 '
+' Utility function to convert an integer value to a string while dropping the initial
+' space character that is inserted by Str$ to reserve room for the sign
+'
+Private Function toStringWithoutSign(i)
+    If i >= 0 Then
+        toStringWithoutSign = Right$(Str$(i), Len(Str$(i)) - 1)
+    Else
+        toStringWithoutSign = Str$(i)
+    End If
+End Function
+
+
+'
 ' This function enriches existing slide numbers with a subindex, namely a progressive
 ' number assigned anew to each slide resulting from splitting a single original one.
 ' It works in close conjunction with bakeSlideNumbers, with a main difference:
@@ -1390,7 +1403,7 @@ Private Sub augmentSlideNumbers(current_slide As slide, progressive_slide_count)
         If sh.Type = msoPlaceholder Then
             With sh.PlaceholderFormat
                 If slideNumbersAdjustMode = SLIDENUMBER_SUBINDEX And .Type = ppPlaceholderSlideNumber Then
-                    sh.TextFrame.TextRange.InsertAfter "." + Right$(Str$(progressive_slide_count), Len(Str$(progressive_slide_count)) - 1)
+                    sh.TextFrame.TextRange.InsertAfter "." + toStringWithoutSign(progressive_slide_count)
                 End If
             End With
         End If
@@ -1480,8 +1493,34 @@ Private Function isMouseTriggered(effect As effect)
 End Function
 
 '
+' Determine if the emphasis effect passed as argument has a temporary duration.
+' For most emphasis effect types, the Duration parameter indicates the time it
+' takes for the effect to be played until its end, while its outcome is anyway
+' persistent regardless of this time. For a few effect types, instead, Duration
+' indicates the time for which the result of the emphasis effect should persist
+' on the shape it is applied to (i.e., it is reverted afterwards). In the latter
+' case, Duration may be a Double value or "1,#INF" (which I assume to represent
+' infinity) in case it is set to "Until next click" or "Until end of slide".
+' Since there seems to be no method to recognize the "1,#INF" value (which is
+' not a string anyway), here I assume a conventionally large value (1E+100) as
+' discriminating between a user-set duration and a persistent effect.
+'
+Private Function isTemporaryEmphasisEffect(e As effect)
+    isTemporaryEmphasisEffect = False
+    ' Remember that some effects miss the EffectType attribute altogether
+    On Error GoTo skipEffect
+    isTemporaryEmphasisEffect = isTemporaryEmphasisEffect Or e.EffectType = msoAnimEffectTransparency
+    isTemporaryEmphasisEffect = isTemporaryEmphasisEffect Or e.EffectType = msoAnimEffectBoldReveal
+    isTemporaryEmphasisEffect = isTemporaryEmphasisEffect And (e.Timing.Duration < 1E+100)
+
+skipEffect:
+    
+End Function
+
+'
 ' Pre-process effects in timelines in order to:
-' - remove non-persistent effects (i.e., rewound after playing, autoreverse)
+' - remove non-persistent effects (i.e., rewound after playing, autoreversed
+'   and, for few effect types, fixed-duration)
 ' - add an extra "fake" exit animation for those effects that are
 '   set to "hide on next click"
 ' - turn entry effects for which the "hide after playing" property
@@ -1541,26 +1580,33 @@ Private Sub preprocessEffects(current_slide As slide, final_colors As Collection
         End If
         
         If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHide Then
-            ' This effect behaves as an exit effect: unless it is already
-            ' an exit effect, replace it with an exit effect
+            ' The final outcome of this effect is the same of an exit effect;
+            ' however, the initial visibility status of the shape it applies to still
+            ' depends on whether this actually is an entry effect (in which case
+            ' the shape is initially invisible) or an exit effect (if which case
+            ' the shape is initially visible). Therefore, it is not possible to
+            ' simply replace this with an exit effect, but an immediately
+            ' following exit effect must be added instead (unless this is already
+            ' an exit effect).
             If Not current_effect.Exit Then
                 Set e2 = current_slide.timeline.MainSequence.AddEffect(current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious)
+                e2.Exit = msoCTrue
                 e2.MoveAfter current_effect
-                current_effect.Delete
                 
                 ' No updates of the final_colors Collection are due, since an
                 ' effect replacement has taken place (for which the Color2 property
                 ' will not even be taken into account)
             End If
         End If
-
-        ' Rewound-at-end and autoreversed (emphasis) effects have no persistent impact on the shape
-        ' they are applied to, unless they are also set, e.g., for hiding on next click (which has
-        ' already been checked). Their presence is still required, though, as they may determine
-        ' timeline advancement steps by mouse clicks. Therefore, such an effect is replaced with
-        ' another one that simply has no persistent effects (but will still be processed in the
-        ' following).
-        If current_effect.Timing.AutoReverse Or current_effect.Timing.RewindAtEnd Then
+        
+        ' Rewound-at-end, autoreversed and, sometimes, fixed-duration (emphasis) effects have no persistent
+        ' impact on the shape they are applied to, unless they are also set, e.g., for hiding
+        ' on next click (which has already been checked). Their presence is still required, though,
+        ' as they may determine timeline advancement steps by mouse clicks. Therefore, such an
+        ' effect is replaced with another one that simply has no persistent effects (but will
+        ' still be processed in the following).
+        
+        If current_effect.Timing.AutoReverse Or current_effect.Timing.RewindAtEnd Or isTemporaryEmphasisEffect(current_effect) Then
             current_effect.EffectType = msoAnimEffectFlashBulb
         End If
         
@@ -1634,7 +1680,7 @@ End Sub
 Private Sub copyShapeIDsToTags(current_slide As slide)
     Dim sh As Shape
     For Each sh In current_slide.Shapes
-        sh.Tags.Add "ID", Str$(sh.Id)
+        sh.Tags.Add "PPspliT_ID", Str$(sh.Id)
     Next sh
 End Sub
 
@@ -1654,9 +1700,16 @@ Private Sub setProgressBar(current_value, max_value)
     DoEvents
 End Sub
 
+'
 ' Fix cross-slide hyperlinks that may have been broken or may point to
 ' a wrong slide due to slides being renumbered when split.
-Private Sub fixHyperlinks(old_to_new_index As Collection)
+' This function should be used twice: once before splitting (first
+' argument set to True), in order to convert any hyperlinks pointing to
+' "previous" or "next" slide into their absolute indices, and once after
+' splitting (first argument set to False), when slide indices in hyperlinks
+' are adjusted
+'
+Private Sub fixHyperlinks(bake_hyperlinks_mode As Boolean, old_to_new_index As Collection)
     Dim current_slide As slide
     Dim current_shape As Shape
     Dim hyperlink_updated As Boolean
@@ -1665,6 +1718,12 @@ Private Sub fixHyperlinks(old_to_new_index As Collection)
             ' Shape groups don't have ActionSettings
             If current_shape.Type <> msoGroup Then
                 With current_shape.ActionSettings(ppMouseClick).Hyperlink
+                    ' The hyperlink may have been modified when slides were
+                    ' duplicated, so we retrieve it again from the Tags collection
+                    If current_shape.Tags("PPspliT_hyperlink") <> "" Then
+                        .SubAddress = current_shape.Tags("PPspliT_hyperlink")
+                    End If
+                    
                     If .Address = "" And .SubAddress <> "" Then
                         hyperlink_updated = False
                         ' The target hyperlink address is empty, which is a likely
@@ -1682,26 +1741,62 @@ Private Sub fixHyperlinks(old_to_new_index As Collection)
                             ' appear, each being a fallback in case no slides matching
                             ' the preceding one are found
                             
-                            ' slideID is left untouched: in fact, if a slide with the
-                            ' originally assigned ID still exists after splitting, it
+                            ' slideID is usually left untouched: in fact, if a slide with
+                            ' the originally assigned ID still exists after splitting, it
                             ' is fine to have the hyperlink point to that slide
                             new_slide_id = hyperlink_arguments(0)
-                            
-                            ' If the slide index is used instead, its number must be
-                            ' updated
-                            new_slide_index = hyperlink_arguments(1)
-                            If new_slide_index <> "" Then
-                                ' Make sure to suppress the initial space character in the
-                                ' conversion from Integer to String
-                                new_slide_index = Right$(Str$(old_to_new_index(new_slide_index)), Len(Str$(old_to_new_index(new_slide_index))) - 1)
-                                hyperlink_updated = True
-                            End If
                             
                             ' Also the slide title can be left untouched, as titles are
                             ' not altered during the split
                             new_slide_title = hyperlink_arguments(2)
                             
+                            ' If the slide index is used instead, its number must be
+                            ' updated
+                            new_slide_index = hyperlink_arguments(1)
+                            If new_slide_index <> "" Then
+                                If bake_hyperlinks_mode Then
+                                    If new_slide_title = "NEXT" And current_slide.SlideIndex < ActivePresentation.Slides.Count Then
+                                        ' Hyperlink pointing to the next slide
+                                        new_slide_index = toStringWithoutSign(current_slide.SlideIndex + 1)
+                                        hyperlink_updated = True
+                                    End If
+                                    If new_slide_title = "PREV" And current_slide.SlideIndex > 1 Then
+                                        ' Hyperlink pointing to the previous slide
+                                        new_slide_index = toStringWithoutSign(current_slide.SlideIndex - 1)
+                                        hyperlink_updated = True
+                                    End If
+                                Else
+                                    If Int(new_slide_index) > 0 Then
+                                        ' In some rare cases the slide index may point to a
+                                        ' non-existent slide (for example if the presentation
+                                        ' has been shortened by removing some slide, and the
+                                        ' hyperlink still points to the old indices); in these
+                                        ' cases it is assumed that the hyperlink follows the
+                                        ' slide ID instead.
+                                        ' The slide index is still (arbitrarily) set to the last
+                                        ' valid slide index in order to be able to properly
+                                        ' update the hyperlink
+                                        If Int(new_slide_index) > old_to_new_index.Count Then
+                                            new_slide_index = toStringWithoutSign(old_to_new_index.Count)
+                                        End If
+                                        ' Make sure to suppress the initial space character in the
+                                        ' conversion from Integer to String
+                                        new_slide_index = toStringWithoutSign(old_to_new_index(new_slide_index))
+                                        hyperlink_updated = True
+                                    End If
+                                End If
+                            End If
+                            
+                            ' Interestingly, when slides are duplicated (which happens many times
+                            ' later on in the code) PowerPoint automatically regenerates the
+                            ' slide ID in some hyperlinks that do not have one set (e.g., hyperlinks
+                            ' with a slide index but with slide ID set to -1),
+                            ' thus binding the hyperlink to an established slide even if the latter
+                            ' subject to renumbering. In order to avoid this, all updated hyperlinks
+                            ' are stored in a Tag when this function is first invoked, so that they
+                            ' stay untouched and can be retrieved when this function is again invoked
                             If hyperlink_updated Then .SubAddress = new_slide_id + "," + new_slide_index + "," + new_slide_title
+                            If bake_hyperlinks_mode Then current_shape.Tags.Add "PPspliT_hyperlink", .SubAddress
                         End If
                     End If
                 End With
@@ -1719,6 +1814,11 @@ Sub PPspliT_main()
 
     If Application.Presentations.Count = 0 Then
         ' No open presentations
+        Exit Sub
+    End If
+    
+    If ActivePresentation.Slides.Count = 0 Then
+        ' No slides in the presentation
         Exit Sub
     End If
 
@@ -1755,14 +1855,15 @@ Sub PPspliT_main()
     Dim slide_index_old_to_new As Collection
     Set slide_index_old_to_new = New Collection
     For Each s In ActiveWindow.Presentation.Slides
-        slide_index_old_to_new.Add s.SlideIndex, Right$(Str$(s.SlideIndex), Len(Str$(s.SlideIndex)) - 1)
+        slide_index_old_to_new.Add s.SlideIndex, toStringWithoutSign(s.SlideIndex)
     Next s
     
-
+    
+    
     ' Determine the set of slides to be split: selected slides (if any)
     ' or the whole slide deck.
     If ActiveWindow.Selection.Type = ppSelectionSlides Then
-        split_selected_slides = MsgBox(prompt:="It seems that a set of slides is currently selected. " + _
+        split_selected_slides = MsgBox(prompt:="It seems that a set of " + toStringWithoutSign(ActiveWindow.Selection.SlideRange.Count) + " slides is currently selected. " + _
              "By proceeding, you will only be splitting selected slides." + Chr$(13) + _
              "- Click " + Chr$(34) + "Yes" + Chr$(34) + " if this is what you want." + Chr$(13) + _
              "- Click " + Chr$(34) + "No" + Chr$(34) + " if you want to split ALL the slides in the presentation instead." + Chr$(13) + _
@@ -1778,6 +1879,24 @@ Sub PPspliT_main()
         Set slide_range = ActiveWindow.Presentation.Slides.Range
     End If
     
+    
+    ' Tag all slides that are supposed to be split. This is required
+    ' because there are multiple different ranges to work on:
+    ' - splitting must happen only on the user-specified range of slides
+    '   (or all the slides in the presentation)
+    ' - cross-slide hyperlinks need to be updated for all the slides in the
+    '   original deck anyway, since newly inserted slides during the split
+    '   make all the following ones shift
+    ' Other tags are also cleared in this loop
+    Dim tagged_slide As slide
+    For Each tagged_slide In ActivePresentation.Slides
+        tagged_slide.Tags.Delete "PPspliT_split"
+        tagged_slide.Tags.Delete "PPspliT_hyperlink"
+    Next tagged_slide
+    For Each tagged_slide In slide_range
+        tagged_slide.Tags.Add "PPspliT_split", "1"
+    Next tagged_slide
+        
         
     
     ' After a few pre-processing steps, slides are split as follows.
@@ -1839,6 +1958,10 @@ Sub PPspliT_main()
     ' Bake slide numbers, if asked to
     If slideNumbersAdjustMode <> SLIDENUMBER_DONOTHING Then bakeSlideNumbers slide_range
     
+    ' "Bake" hyperlinks pointing to the previous/next slide, by converting them
+    ' into hyperlinks pointing to the corresponding slide index
+    fixHyperlinks True, New Collection
+    
     Dim current_slide As slide, current_original_slide As slide
     Dim effect_sequence As Sequence
     Dim current_effect As effect
@@ -1852,17 +1975,16 @@ Sub PPspliT_main()
     processed_slides_count = 0
     
     ' Preserve the actual slide number for future usage
-    For Each current_slide In slide_range
+    For Each current_slide In ActiveWindow.Presentation.Slides.Range
         ' Converting a number to a string adds a space at the beginning
         ' (to reserve room for a possible negative sign). The space is removed
         ' here
-        current_slide.Tags.Add "originalSlideNumber", Right$(Str$(current_slide.SlideIndex), Len(Str$(current_slide.SlideIndex)) - 1)
+        current_slide.Tags.Add "PPspliT_originalSlideNumber", toStringWithoutSign(current_slide.SlideIndex)
     Next current_slide
-
-
-    ' Iterate over all the slides in the presentation
-    For Each current_original_slide In slide_range
-        current_original_slide.Tags.Delete "done"
+    
+    ' Iterate over all the slides in the presentation (not just user-selected ones)
+    For Each current_original_slide In ActiveWindow.Presentation.Slides.Range
+        current_original_slide.Tags.Delete "PPspliT_done"
         split_slides = 0
         
         ' Store the mapping between the slide index that current_original_slide
@@ -1871,151 +1993,159 @@ Sub PPspliT_main()
         ' made current_original_slide move in the slide sequence.
         ' Elements in a Collection object cannot be updated, therefore it is
         ' necessary to first remove and then re-add them with the updated value.
-        slide_index_old_to_new.Remove current_original_slide.Tags("originalSlideNumber")
-        slide_index_old_to_new.Add current_original_slide.SlideIndex, current_original_slide.Tags("originalSlideNumber")
+        slide_index_old_to_new.Remove current_original_slide.Tags("PPspliT_originalSlideNumber")
+        slide_index_old_to_new.Add current_original_slide.SlideIndex, current_original_slide.Tags("PPspliT_originalSlideNumber")
+        
+        ' Only split the current slide if this was intended (i.e., splitting
+        ' was requested for the full slide deck or for a user-selected range
+        ' that includes the current slide)
+        If current_original_slide.Tags("PPspliT_split") = "1" Then
     
-        processed_slides_count = processed_slides_count + 1
-        ProgressForm.SlideNumber = "Slide " + Str$(current_original_slide.Tags("originalSlideNumber")) + " (currently" + Str$(current_original_slide.SlideNumber) + ") -" + Str$(processed_slides_count) + " of" + Str$(original_slide_count)
-        DoEvents
-        
-        preprocessEffects current_original_slide, final_colors
-        
-        If current_original_slide.timeline.MainSequence.Count > 0 Then
-        
-            ' There are entry/emphasis/exit effects to process
-            
-            ProgressForm.infoLabel = "Preprocessing animation effects..."
-            DoEvents
-
-            ' Preserve shape IDs in case they are lost
-            copyShapeIDsToTags current_original_slide
-            
-            Set effect_sequence = current_original_slide.timeline.MainSequence
-            effect_count = effect_sequence.Count
-            processed_effects_count = 0
-            Set current_slide = current_original_slide
-            
-            ' shapeVisibility is a dictionary that stores, for each shape (or text paragraph),
-            ' its visibility status at the current step of the animation timeline. Here the
-            ' data structure is initialized with the IDs of all the shapes/paragraphs involved
-            ' in the timeline. At the same time, here we determine the visibility status of
-            ' each shape before any animations are played.
-            Set shapeVisibility = New Collection
-            Dim fullShapeID As String
-            Dim final_colors_for_slide As Collection
-            For Each current_effect In effect_sequence
-                fullShapeID = getFullShapeID(current_effect)
-                ' Inserting twice the same key may raise an error
-                On Error Resume Next
-                shapeVisibility.Add Null, fullShapeID
-                On Error GoTo error_handler
-                
-                ' Determine the initial visibility status
-                If IsNull(shapeVisibility(fullShapeID)) Then
-                    ' Visibility was undetermined so far, so this is the first effect in the
-                    ' animation timeline that is applied to this shape/paragraph
-                    shapeVisibility.Remove (fullShapeID)
-                    shapeVisibility.Add isEmphasisEffect(current_effect) Or (current_effect.Exit = msoTrue), fullShapeID
-                End If
-                If cancelStatus Then
-                    Unload ProgressForm
-                    Exit Sub
-                End If
-            Next current_effect
-
-
-            ProgressForm.infoLabel = "Duplicating slides and applying emphasis/path effects..."
+            processed_slides_count = processed_slides_count + 1
+            ProgressForm.SlideNumber = "Slide " + Str$(current_original_slide.Tags("PPspliT_originalSlideNumber")) + " (currently" + Str$(current_original_slide.SlideNumber) + ") -" + Str$(processed_slides_count) + " of" + Str$(original_slide_count)
             DoEvents
             
-            ' Create first duplicated slide ("Copy 0"), which will contain
-            ' shapes in their initial state
-            Set current_slide = current_slide.Duplicate(1)
-            current_slide_count = current_slide_count + 1
-
-            ' Process emphasis effects first, so that they are made persistent across
-            ' copies of the original slide
-            For Each current_effect In effect_sequence
-                If (Not splitMouseTriggered) Or isMouseTriggered(current_effect) Then
-                    ' Either the split has been requested for every animation step, or this
-                    ' is a click-triggered animation effect.
-                    ' Create a copy of the slide and consider the copy as the base for future
-                    ' duplications
-                    Set current_slide = current_slide.Duplicate(1)
-                    current_slide_count = current_slide_count + 1
-                End If
+            preprocessEffects current_original_slide, final_colors
+            
+            If current_original_slide.timeline.MainSequence.Count > 0 Then
+            
+                ' There are entry/emphasis/exit effects to process
                 
-                If isEmphasisEffect(current_effect) Then
-                    Set final_colors_for_slide = final_colors(Str$(current_original_slide.SlideID))
-                    applyEmphasisEffect effect_sequence, current_effect, findShapeByIDinTag(current_effect.Shape.Id, current_slide), final_colors_for_slide(Str$(current_effect.Index))
-                End If
+                ProgressForm.infoLabel = "Preprocessing animation effects..."
+                DoEvents
+    
+                ' Preserve shape IDs in case they are lost
+                copyShapeIDsToTags current_original_slide
                 
-                processed_effects_count = processed_effects_count + 1
-                setProgressBar processed_slides_count - 1 + processed_effects_count / (2 * effect_count), original_slide_count
-                If cancelStatus Then
-                    Unload ProgressForm
-                    Exit Sub
-                End If
-            Next current_effect
-
-
-            ProgressForm.infoLabel = "Processing entry/exit effects..."
-            DoEvents
-            
-            ' Go again through the animation steps and delete shapes/paragraphs
-            ' according to the animation timeline. Note that this
-            ' operation cannot be performed earlier, as shapes would
-            ' otherwise be lost across slide duplicates and need tos
-            ' be restored somehow (for example by copy-paste).
-            processed_effects_count = 0
-            ' Set current_slide to the first generated duplicate ("Copy 0")
-            Set current_slide = current_slide.Parent.Slides(current_original_slide.SlideNumber + 1)
-            
-            split_slides = split_slides + 1
-            augmentSlideNumbers current_slide, split_slides
-            
-            For Each current_effect In effect_sequence
-                If (Not splitMouseTriggered) Or isMouseTriggered(current_effect) Then
+                Set effect_sequence = current_original_slide.timeline.MainSequence
+                effect_count = effect_sequence.Count
+                processed_effects_count = 0
+                Set current_slide = current_original_slide
+                
+                ' shapeVisibility is a dictionary that stores, for each shape (or text paragraph),
+                ' its visibility status at the current step of the animation timeline. Here the
+                ' data structure is initialized with the IDs of all the shapes/paragraphs involved
+                ' in the timeline. At the same time, here we determine the visibility status of
+                ' each shape before any animations are played.
+                Set shapeVisibility = New Collection
+                Dim fullShapeID As String
+                Dim final_colors_for_slide As Collection
+                For Each current_effect In effect_sequence
+                    fullShapeID = getFullShapeID(current_effect)
+                    ' Inserting twice the same key may raise an error
+                    On Error Resume Next
+                    shapeVisibility.Add Null, fullShapeID
+                    On Error GoTo error_handler
+                    
+                    ' Determine the initial visibility status
+                    If IsNull(shapeVisibility(fullShapeID)) Then
+                        ' Visibility was undetermined so far, so this is the first effect in the
+                        ' animation timeline that is applied to this shape/paragraph
+                        shapeVisibility.Remove (fullShapeID)
+                        shapeVisibility.Add isEmphasisEffect(current_effect) Or (current_effect.Exit = msoTrue), fullShapeID
+                    End If
+                    If cancelStatus Then
+                        Unload ProgressForm
+                        Exit Sub
+                    End If
+                Next current_effect
+    
+    
+                ProgressForm.infoLabel = "Duplicating slides and applying emphasis/path effects..."
+                DoEvents
+                
+                ' Create first duplicated slide ("Copy 0"), which will contain
+                ' shapes in their initial state
+                Set current_slide = current_slide.Duplicate(1)
+                current_slide_count = current_slide_count + 1
+    
+                ' Process emphasis effects first, so that they are made persistent across
+                ' copies of the original slide
+                For Each current_effect In effect_sequence
+                    If (Not splitMouseTriggered) Or isMouseTriggered(current_effect) Then
+                        ' Either the split has been requested for every animation step, or this
+                        ' is a click-triggered animation effect.
+                        ' Create a copy of the slide and consider the copy as the base for future
+                        ' duplications
+                        Set current_slide = current_slide.Duplicate(1)
+                        current_slide_count = current_slide_count + 1
+                    End If
+                    
+                    If isEmphasisEffect(current_effect) Then
+                        Set final_colors_for_slide = final_colors(Str$(current_original_slide.SlideID))
+                        applyEmphasisEffect effect_sequence, current_effect, findShapeByIDinTag(current_effect.Shape.Id, current_slide), final_colors_for_slide(Str$(current_effect.Index))
+                    End If
+                    
+                    processed_effects_count = processed_effects_count + 1
+                    setProgressBar processed_slides_count - 1 + processed_effects_count / (2 * effect_count), original_slide_count
+                    If cancelStatus Then
+                        Unload ProgressForm
+                        Exit Sub
+                    End If
+                Next current_effect
+    
+    
+                ProgressForm.infoLabel = "Processing entry/exit effects..."
+                DoEvents
+                
+                ' Go again through the animation steps and delete shapes/paragraphs
+                ' according to the animation timeline. Note that this
+                ' operation cannot be performed earlier, as shapes would
+                ' otherwise be lost across slide duplicates and need to
+                ' be restored somehow (for example by copy-paste).
+                processed_effects_count = 0
+                ' Set current_slide to the first generated duplicate ("Copy 0")
+                Set current_slide = current_slide.Parent.Slides(current_original_slide.SlideNumber + 1)
+                
+                split_slides = split_slides + 1
+                augmentSlideNumbers current_slide, split_slides
+                
+                For Each current_effect In effect_sequence
+                    If (Not splitMouseTriggered) Or isMouseTriggered(current_effect) Then
+                        purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
+                        purgeEffects current_slide
+                        ' Mark current slide as completely processed
+                        current_slide.Tags.Add "PPspliT_done", "1"
+                        If current_slide.SlideNumber < ActivePresentation.Slides.Count Then
+                            Set current_slide = current_slide.Parent.Slides(current_slide.SlideNumber + 1)
+                            
+                            split_slides = split_slides + 1
+                            augmentSlideNumbers current_slide, split_slides
+                        End If
+                    End If
+                    ' Update the actual visibility status of the current shape/paragraph. Note
+                    ' that emphasis/path motion effects have no impact on shape visibility
+                    If Not isEmphasisEffect(current_effect) Then
+                        shapeVisibility.Remove (getFullShapeID(current_effect))
+                        shapeVisibility.Add (current_effect.Exit = msoFalse), getFullShapeID(current_effect)
+                    End If
+                    
+                    processed_effects_count = processed_effects_count + 1
+                    setProgressBar processed_slides_count - 0.5 + processed_effects_count / (2 * effect_count), original_slide_count
+                    If cancelStatus Then
+                        Unload ProgressForm
+                        Exit Sub
+                    End If
+                Next current_effect
+                
+                If current_slide.Tags("PPspliT_done") <> "1" Then
+                    ' This slide has to be processed yet
                     purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
                     purgeEffects current_slide
-                    ' Mark current slide as completely processed
-                    current_slide.Tags.Add "done", "1"
-                    If current_slide.SlideNumber < ActivePresentation.Slides.Count Then
-                        Set current_slide = current_slide.Parent.Slides(current_slide.SlideNumber + 1)
-                        
-                        split_slides = split_slides + 1
-                        augmentSlideNumbers current_slide, split_slides
-                    End If
                 End If
-                ' Update the actual visibility status of the current shape/paragraph. Note
-                ' that emphasis/path motion effects have no impact on shape visibility
-                If Not isEmphasisEffect(current_effect) Then
-                    shapeVisibility.Remove (getFullShapeID(current_effect))
-                    shapeVisibility.Add (current_effect.Exit = msoFalse), getFullShapeID(current_effect)
-                End If
+    
+                ' At this point the original slide is deleted so that
+                ' its place is taken by "Copy 0"
+                current_original_slide.Delete
                 
-                processed_effects_count = processed_effects_count + 1
-                setProgressBar processed_slides_count - 0.5 + processed_effects_count / (2 * effect_count), original_slide_count
-                If cancelStatus Then
-                    Unload ProgressForm
-                    Exit Sub
-                End If
-            Next current_effect
+            End If  ' If current_original_slide.timeline.MainSequence.Count > 0
             
-            If current_slide.Tags("done") <> "1" Then
-                ' This slide has to be processed yet
-                purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
-                purgeEffects current_slide
-            End If
-
-            ' At this point the original slide is deleted so that
-            ' its place is taken by "Copy 0"
-            current_original_slide.Delete
-        End If
+        End If ' If current_original_slide.Tags("PPspliT_split") = "1"
         
     Next current_original_slide
     
     ' Adjust hyperlinks
-    fixHyperlinks slide_index_old_to_new
+    fixHyperlinks False, slide_index_old_to_new
                         
     Unload ProgressForm
     Exit Sub
@@ -2030,7 +2160,7 @@ error_handler:
         resp = MsgBox("Unfortunately, an unrecoverable error has occurred while splitting." & vbCrLf & _
                       "- Error code: " & Str$(Err.Number) & vbCrLf & _
                       "- Error description: " & Err.Description & vbCrLf & _
-                      "- Slide number: " & current_original_slide.Tags("originalSlideNumber") & " (original) - " & Str$(current_original_slide.SlideNumber) & " (actual)" & vbCrLf & _
+                      "- Slide number: " & current_original_slide.Tags("PPspliT_originalSlideNumber") & " (original) - " & Str$(current_original_slide.SlideNumber) & " (actual)" & vbCrLf & _
                       "Would you like to continue anyway (discouraged)?", vbYesNo, "Fatal error")
     End If
     If resp = vbYes Then
