@@ -250,8 +250,11 @@ impression is that the visible shape (the arc) has "wandered around".
 
 11. *Exit/entry effects applied to shapes that are part of a slide layout are only
 partially supported*
-&mdash; In fact, these shapes are turned into placeholders
-(instead of disappearing altogether) when one attempts to delete them.
+&mdash; In fact, these shapes are turned into placeholders (instead of
+disappearing altogether) when one attempts to delete them. While this is not an
+issue in the vast majority of cases, if such placeholders have a formatting
+applied (e.g., a background color) they may stay visible even when they are not
+expected to.
 
 12. *Adjustment of slide numbers on a PPTX file that is imported into PowerPoint
 <=2003 using the Microsoft Office Compatibility Pack*
