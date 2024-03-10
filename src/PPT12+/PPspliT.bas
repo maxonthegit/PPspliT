@@ -8,10 +8,10 @@ Attribute VB_Name = "PPspliT"
 '   | |    | |   \__ \ |_) | | |  | |
 '   |_|    |_|   |___/ .__/|_|_|  |_|
 '                    | |
-'                    |_| by Massimo Rimondini - version 2.5
+'                    |_| by Massimo Rimondini - version 2.6
 '
 ' first written by Massimo Rimondini in November 2009
-' last update: May 2023
+' last update: Mar 2024
 ' Source code for PowerPoint 2007+
 '
 '
@@ -1518,6 +1518,34 @@ skipEffect:
 End Function
 
 '
+' Insert a single element in the middle of an existing Collection indexed by
+' String-typed numeric keys, like the final_colors Collection.
+' This subroutine shifts forward the numeric values of existing keys that occur
+' after the inserted elements. Thus, inserting an element at position "4" in the
+' following collection:
+'    " 1" => FirstObject
+'    " 2" => SecondObject
+'    " 3" => ThirdObject
+'    " 4" => FourthObject
+'    " 5" => FifthObject
+' has  the following outcome:
+'    " 1" => FirstObject
+'    " 2" => SecondObject
+'    " 3" => ThirdObject
+'    " 4" => NewlyInsertedObject
+'    " 5" => FourthObject
+'    " 6" => FifthObject
+Private Sub insertElementInCollection(ByRef target_collection As Collection, new_element As Object, insert_after As Integer)
+    With target_collection
+        For idx = .Count + 1 To insert_after + 2 Step -1
+            .Add .Item(Str$(idx - 1)), Str$(idx)
+            .Remove Str$(idx - 1)
+        Next idx
+        .Add new_element, Str$(insert_after + 1)
+    End With
+End Sub
+
+'
 ' Pre-process effects in timelines in order to:
 ' - remove non-persistent effects (i.e., rewound after playing, autoreversed
 '   and, for few effect types, fixed-duration)
@@ -1566,36 +1594,27 @@ Private Sub preprocessEffects(current_slide As slide, final_colors As Collection
             ' only afterwards, move it to the right location.
             e2.MoveAfter insert_after_effect
             
-            ' Since indexes of animation effects have been updated as a consequence of the
-            ' effect insertion, the Collection that stores final colors for emphasis effects
-            ' has to be updated accordingly
-            With final_colors(Str$(current_slide.SlideID))
-                For e_idx = current_slide.timeline.MainSequence.Count To insert_after_effect.Index + 2 Step -1
-                    .Add .Item(Str$(e_idx - 1)), Str$(e_idx)
-                    .Remove Str$(e_idx - 1)
-                Next e_idx
-                ' Avoid leaving an empty slot
-                .Add Nothing, Str$(insert_after_effect.Index + 1)
-            End With
+            insertElementInCollection final_colors(Str$(current_slide.SlideID)), Nothing, insert_after_effect.Index
+        
         End If
         
         If current_effect.EffectInformation.AfterEffect = msoAnimAfterEffectHide Then
-            ' The final outcome of this effect is the same of an exit effect;
-            ' however, the initial visibility status of the shape it applies to still
-            ' depends on whether this actually is an entry effect (in which case
-            ' the shape is initially invisible) or an exit effect (if which case
-            ' the shape is initially visible). Therefore, it is not possible to
-            ' simply replace this with an exit effect, but an immediately
-            ' following exit effect must be added instead (unless this is already
-            ' an exit effect).
+            ' The final outcome of this effect is the same of an exit effect.
+            ' However, it is not possible to simply replace this effect with
+            ' an exit effect, because the initial visibility status of the shape it
+            ' applies to must be preserved for processing by later routines, and
+            ' it depends on the effect type (entry/exit/emphasis/motion).
+            ' Therefore, only in the case in which this is not already an exit effect,
+            ' we artificially add an exit effect, thus preserving the initial shape
+            ' visibility as well as the expected outcome of the
+            ' msoAnimAfterEffectHide property applied to this effect.
             If Not current_effect.Exit Then
                 Set e2 = current_slide.timeline.MainSequence.AddEffect(current_effect.Shape, msoAnimEffectDissolve, , msoAnimTriggerWithPrevious)
-                e2.Exit = msoCTrue
+                effects_count = effects_count + 1
+                e2.Exit = msoTrue
                 e2.MoveAfter current_effect
                 
-                ' No updates of the final_colors Collection are due, since an
-                ' effect replacement has taken place (for which the Color2 property
-                ' will not even be taken into account)
+                insertElementInCollection final_colors(Str$(current_slide.SlideID)), Nothing, current_effect.Index
             End If
         End If
         
