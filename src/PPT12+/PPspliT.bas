@@ -1439,9 +1439,14 @@ Private Sub purgeInvisibleShapes(ByRef shape_visible As Collection, timeline As 
                         ' making it invisible) is not correct, since it must still
                         ' take up space to let the rest of the text in the frame stay
                         ' where it currently is
-                        target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Fill.Transparency = 1
+                        target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Fill.Visible = msoFalse
+                        ' While enabling the font (out)line by setting Line.Visible to msoTrue
+                        ' works perfectly, disabling it by setting Line.Visible to msoFalse
+                        ' apparently has no effect (see also https://www.experts-exchange.com/questions/28712067/Turning-off-text-outline-with-VBA-in-PowerPoint.html).
+                        ' As a workaround, line transparency is set instead.
+                        target_shape.TextFrame2.TextRange.Paragraphs(par).Font.Line.Transparency = 1
                         ' Sometimes, especially when (small) images are used, bullets
-                        ' stay visible even after executing the above statement. Therefore,
+                        ' stay visible even after executing the above statements. Therefore,
                         ' here we try again to hide them. Once more, removing them
                         ' (i.e., clearing them or making them invisible) is not a good idea,
                         ' because it would cause the corresponding paragraph text to shift
