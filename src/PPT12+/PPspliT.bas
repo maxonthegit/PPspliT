@@ -1830,6 +1830,69 @@ Private Sub fixHyperlinks(bake_hyperlinks_mode As Boolean, old_to_new_index As C
 End Sub
 
 '
+' Adjust each custom ("named") slideshow so that the slide
+' subset defined therein is updated to include all the extra
+' slides that resulted from splitting them.
+' Takes as argument a collection that maps the ID of each
+' slide ID in the original slide deck to a sequence of IDs
+' of the slides that resulted from splitting it. To avoid
+' the need of deep copies, the argument is passed by reference,
+' but its contents are not altered in any ways.
+'
+Private Sub fixCustomSlideshows(ByRef id_map As Collection)
+    Dim custom_slideshow As NamedSlideShow
+    Dim new_slideshow_names As Collection, new_slidesets As Collection, temp_slideset As Collection
+    
+    Set new_slideshow_names = New Collection
+    Set new_slidesets = New Collection
+
+    For Each custom_slideshow In ActivePresentation.SlideShowSettings.NamedSlideShows
+        ' SlideIDs is a read-only property of a NamedSlideShow. Therefore,
+        ' as also documented in https://learn.microsoft.com/en-us/office/vba/api/powerpoint.namedslideshow.slideids,
+        ' adding slides to an existing custom slideshow requires deleting and
+        ' recreating it
+        
+        ' temp_slideset stores the sequence of slide IDs resulting
+        ' after splitting the members of the currently processed
+        ' custom slideshow
+        Set temp_slideset = New Collection
+        
+        For Each slide_ID In custom_slideshow.SlideIDs
+            ' Sometimes there is a (hidden) first element in a custom
+            ' slideshow whose slide ID is 0; just skip it
+            If slide_ID <> 0 Then
+                For Each new_slideID In id_map(Str$(slide_ID))
+                    temp_slideset.Add new_slideID
+                Next new_slideID
+            End If
+        Next slide_ID
+        
+        ' Store the name and new sequence of slide IDs of the current
+        ' custom slideshow so that they can later be used to replace
+        ' the existing slideshow
+        new_slideshow_names.Add custom_slideshow.Name
+        new_slidesets.Add temp_slideset, custom_slideshow.Name
+    Next custom_slideshow
+    
+    ' Now update existing custom slideshows
+    For Each slideshow_name In new_slideshow_names
+        ' Convert the sequence of slide IDs in the collection to an
+        ' array
+        Dim slideID_array As Variant
+        ReDim slideID_array(1 To new_slidesets(slideshow_name).Count)
+        i = 1
+        For Each sid In new_slidesets(slideshow_name)
+            slideID_array(i) = sid
+            i = i + 1
+        Next sid
+        With ActivePresentation.SlideShowSettings.NamedSlideShows
+            .Item(slideshow_name).Delete
+            .Add slideshow_name, slideID_array
+        End With
+    Next slideshow_name
+End Sub
+
+'
 ' Main loop
 '
 Sub PPspliT_main()
@@ -1875,11 +1938,20 @@ Sub PPspliT_main()
     
     ' Remember how "key" slides that are subject to
     ' being split are renumbered in order to fix cross-slide
-    ' hyperlinks later on
+    ' hyperlinks later on.
+    ' Also keep track of the association between IDs of each original slide
+    ' and IDs of the slides that result after splitting it.
     Dim slide_index_old_to_new As Collection
+    Dim slideID_old_to_new As Collection
     Set slide_index_old_to_new = New Collection
+    Set slideID_old_to_new = New Collection
     For Each s In ActiveWindow.Presentation.Slides
         slide_index_old_to_new.Add s.SlideIndex, toStringWithoutSign(s.SlideIndex)
+        Set ID_collection = New Collection
+        ' At first the association between original and new slide IDs
+        ' is idempotent
+        ID_collection.Add s.SlideID
+        slideID_old_to_new.Add ID_collection, Str$(s.SlideID)
     Next s
     
     
@@ -1993,6 +2065,7 @@ Sub PPspliT_main()
     Dim processed_slides_count As Integer, processed_effects_count As Integer
     
     Dim shapeVisibility As Collection
+    Dim split_slides_IDs As Collection
     
     original_slide_count = slide_range.Count
     current_slide_count = original_slide_count
@@ -2038,6 +2111,12 @@ Sub PPspliT_main()
                 ProgressForm.infoLabel = "Preprocessing animation effects..."
                 DoEvents
     
+                
+                ' Get ready to keep track of the association between the ID of the
+                ' original slide (i.e., the one that is currently being split) and
+                ' those of the slides resulting from splitting it
+                Set split_slides_IDs = New Collection
+                
                 ' Preserve shape IDs in case they are lost
                 copyShapeIDsToTags current_original_slide
                 
@@ -2074,13 +2153,13 @@ Sub PPspliT_main()
                     End If
                 Next current_effect
     
-    
                 ProgressForm.infoLabel = "Duplicating slides and applying emphasis/path effects..."
                 DoEvents
                 
                 ' Create first duplicated slide ("Copy 0"), which will contain
                 ' shapes in their initial state
                 Set current_slide = current_slide.Duplicate(1)
+                split_slides_IDs.Add current_slide.SlideID
                 current_slide_count = current_slide_count + 1
     
                 ' Process emphasis effects first, so that they are made persistent across
@@ -2092,6 +2171,7 @@ Sub PPspliT_main()
                         ' Create a copy of the slide and consider the copy as the base for future
                         ' duplications
                         Set current_slide = current_slide.Duplicate(1)
+                        split_slides_IDs.Add current_slide.SlideID
                         current_slide_count = current_slide_count + 1
                     End If
                     
@@ -2157,7 +2237,14 @@ Sub PPspliT_main()
                     purgeInvisibleShapes shapeVisibility, effect_sequence, current_slide
                     purgeEffects current_slide
                 End If
-    
+
+                ' Keep track of the association between the ID of the original slide
+                ' and those of the slides resulting from splitting it. Since items
+                ' in a Collection object cannot be replaced, we need to first remove
+                ' the existing one
+                slideID_old_to_new.Remove Str$(current_original_slide.SlideID)
+                slideID_old_to_new.Add split_slides_IDs, Str$(current_original_slide.SlideID)
+
                 ' At this point the original slide is deleted so that
                 ' its place is taken by "Copy 0"
                 current_original_slide.Delete
@@ -2170,7 +2257,10 @@ Sub PPspliT_main()
     
     ' Adjust hyperlinks
     fixHyperlinks False, slide_index_old_to_new
-                        
+    
+    ' Adjust references to the slide sequences in custom slideshows
+    fixCustomSlideshows slideID_old_to_new
+
     Unload ProgressForm
     Exit Sub
     
