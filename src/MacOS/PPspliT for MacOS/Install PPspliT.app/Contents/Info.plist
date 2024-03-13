@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>applet</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.ScriptEditor.id.PPspliTInstaller</string>
+	<string>com.apple.ScriptEditor.id.Install-PPspliT</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.5</string>
+	<string>2.6</string>
 	<key>CFBundleSignature</key>
 	<string>aplt</string>
 	<key>CFBundleVersion</key>
@@ -44,7 +44,7 @@
 	<key>NSHomeKitUsageDescription</key>
 	<string>This script needs access to your HomeKit Home to run.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>©2023 Massimo Rimondini</string>
+	<string>©2024 Massimo Rimondini</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This script needs access to your microphone to run.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -55,6 +55,8 @@
 	<string>This script needs access to Siri to run.</string>
 	<key>NSSystemAdministrationUsageDescription</key>
 	<string>This script needs access to administer this system to run.</string>
+	<key>OSAAppletShowStartupScreen</key>
+	<false/>
 	<key>OSAScriptingDefinition</key>
 	<string>PPspliT installer</string>
 	<key>WindowState</key>
@@ -70,9 +72,9 @@
 		<key>name</key>
 		<string>ScriptWindowState</string>
 		<key>positionOfDivider</key>
-		<real>50</real>
+		<real>350</real>
 		<key>savedFrame</key>
-		<string>165 251 999 672 0 0 1920 1055 </string>
+		<string>79 143 999 672 0 0 1440 875 </string>
 		<key>selectedTab</key>
 		<string>result</string>
 	</dict>
