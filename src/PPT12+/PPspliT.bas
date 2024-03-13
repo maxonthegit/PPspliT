@@ -1847,31 +1847,47 @@ Private Sub fixCustomSlideshows(ByRef id_map As Collection)
     Set new_slidesets = New Collection
 
     For Each custom_slideshow In ActivePresentation.SlideShowSettings.NamedSlideShows
-        ' SlideIDs is a read-only property of a NamedSlideShow. Therefore,
-        ' as also documented in https://learn.microsoft.com/en-us/office/vba/api/powerpoint.namedslideshow.slideids,
-        ' adding slides to an existing custom slideshow requires deleting and
-        ' recreating it
-        
-        ' temp_slideset stores the sequence of slide IDs resulting
-        ' after splitting the members of the currently processed
-        ' custom slideshow
-        Set temp_slideset = New Collection
-        
-        For Each slide_ID In custom_slideshow.SlideIDs
-            ' Sometimes there is a (hidden) first element in a custom
-            ' slideshow whose slide ID is 0; just skip it
-            If slide_ID <> 0 Then
+        ' Avoid processing empty custom slideshows. The graphical
+        ' interface prevents users from creating such slideshows,
+        ' but they can still be generated as a consequence of
+        ' deleting all the member slides from the PowerPoint
+        ' presentation
+        If custom_slideshow.Count > 0 Then
+            ' SlideIDs is a read-only property of a NamedSlideShow. Therefore,
+            ' as also documented in https://learn.microsoft.com/en-us/office/vba/api/powerpoint.namedslideshow.slideids,
+            ' adding slides to an existing custom slideshow requires deleting and
+            ' recreating it
+            
+            ' temp_slideset stores the sequence of slide IDs resulting
+            ' after splitting the members of the currently processed
+            ' custom slideshow
+            Set temp_slideset = New Collection
+            
+            On Error Resume Next
+            For Each slide_ID In custom_slideshow.SlideIDs
+                ' Make sure slide_ID exists as a key in id_map; sometimes custom
+                ' slideshows may contain references to invalid slide IDs (e.g., 0).
+                ' Unfortunately, the only way to check for the existence of a key
+                ' in a Collection object is to try accessing its value
+                If id_map(Str$(slide_ID)) > 0 Then GoTo slideid_exists
+                ' The slide_ID does not exist: just keep it unaltered in the
+                ' currently processed custom slideshow
+                temp_slideset.Add slide_ID
+                GoTo slideid_invalid
+slideid_exists:
                 For Each new_slideID In id_map(Str$(slide_ID))
                     temp_slideset.Add new_slideID
                 Next new_slideID
-            End If
-        Next slide_ID
-        
-        ' Store the name and new sequence of slide IDs of the current
-        ' custom slideshow so that they can later be used to replace
-        ' the existing slideshow
-        new_slideshow_names.Add custom_slideshow.Name
-        new_slidesets.Add temp_slideset, custom_slideshow.Name
+slideid_invalid:
+            Next slide_ID
+            On Error GoTo 0
+            
+            ' Store the name and new sequence of slide IDs of the current
+            ' custom slideshow so that they can later be used to replace
+            ' the existing slideshow
+            new_slideshow_names.Add custom_slideshow.Name
+            new_slidesets.Add temp_slideset, custom_slideshow.Name
+        End If
     Next custom_slideshow
     
     ' Now update existing custom slideshows
@@ -2078,7 +2094,7 @@ Sub PPspliT_main()
         ' here
         current_slide.Tags.Add "PPspliT_originalSlideNumber", toStringWithoutSign(current_slide.SlideIndex)
     Next current_slide
-    
+
     ' Iterate over all the slides in the presentation (not just user-selected ones)
     For Each current_original_slide In ActiveWindow.Presentation.Slides.Range
         current_original_slide.Tags.Delete "PPspliT_done"
