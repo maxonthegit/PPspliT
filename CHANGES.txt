@@ -1,3 +1,18 @@
+2.6 (Mar 2024)
+- Colored emojis in text paragraphs were not correctly hidden when supposed to.
+  This is now fixed, thus closing issue #20.
+- Fixed a bug that could cause PPspliT to crash in the presence of an effect with
+  the "hide after playing" property set.
+- Added support for custom slideshows: slide sequences in custom slideshows are
+  now updated to include slides that are added as a result of splitting.
+  Although the main goal of PPspliT differs from that of custom slideshows (these
+  are usually meant for presenting live with an audience, whereas split slides
+  are meant for redistribution), in some cases custom slideshows may also be
+  used as a convenient way to define slide subsets that can be readily printed
+  (or exported to PDF using a virtual printer): this is the use case that this
+  feature aims at addressing.
+  Thanks to Olivier Descout for suggesting this improvement.
+
 2.5 (May 2023)
 - Fixed a bug that caused PPspliT to crash if executed on a completetly
   empty presentation (i.e., with no slides).
@@ -16,7 +31,6 @@
   wrong).
 - Improved handling of a few emphasis effects that can have a temporary
   effect on the shapes they are applied to.
-
 
 2.4 (April 2023)
 - Fixed cross-slide hyperlinks after splitting. Previously, they were broken
