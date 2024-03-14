@@ -51,6 +51,14 @@ tries to fill this gap.
   happen during a slideshow) or at each and every animation effect (useful to
   preserve multiple intermediate animations that are played without any speaker
   interaction).
+  * Updates [custom
+  slideshows](https://support.microsoft.com/en-gb/office/create-and-present-a-custom-show-09d4d340-3c47-4125-b177-0de3be462c5d)
+  by replacing each slide with those that result from splitting it. Custom
+  slideshows are actually named sequences of slides from the full deck and,
+  besides being used at presentation time, they can also be selected as
+  predefined slide ranges when printing. Therefore, this feature can be
+  exploited to conveniently export (by printing to PDF) slide subsequences that
+  are predefined in the form of custom slideshows.
   * Can optionally preserve slide numbers during splitting: if slide footers
   contain text frames with dynamically computed slide numbers, these can be
   overwritten so that numbers in all the slides resulting from splitting a single
