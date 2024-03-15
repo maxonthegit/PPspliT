@@ -29,6 +29,7 @@ tries to fill this gap.
   * [Packaging for Windows](#packaging-for-windows)
   * [Packaging for MacOS](#packaging-for-macos)
 * [Known limitations](#known-limitations)
+* [Manual installation](#manual-installation)
 * [References](#references)
 * [Acknowledgments](#acknowledgments)
 * [Troubleshooting](#troubleshooting)
@@ -123,7 +124,7 @@ installers.
 ### Prerequisites
 * Windows
   * [Nullsoft Scriptable Install System (NSIS)](https://sourceforge.net/projects/nsis/)
-  * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try  using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx-editor) instead.
+  * [Office 2007 Custom UI editor](http://openxmldeveloper.org/blog/b/openxmldeveloper/archive/2009/08/07/7293.aspx) -- As of June 2020, the link seems broken: you may try using the [Office RibbonX Editor](https://github.com/fernandreu/office-ribbonx-editor) instead.
 * MacOS
   * Script Editor (ships natively with MacOS)
 
@@ -292,6 +293,56 @@ always played in the same order in which they appear in the animation sequence.
 
 ---
 
+## Manual Installation
+PPspliT comes packaged with an installer which eases setup by means of a
+convenient wizard. The installer is tuned to operate in many different typical
+configurations (as a sole exception, security features in recent releases of
+macOS may require following specific [(un)installation
+instructions](https://www.maxonthenet.altervista.org/downloads/PPspliT/PPspliT-macOS-howto.pdf)).
+However, in the unlikely case in which it fails, you can still attempt a
+manual installation by following the procedure below.
+
+
+1. Download the latest [PPspliT macro file](https://github.com/maxonthegit/PPspliT/raw/master/src/PPT12%2B/PPspliT.ppam)
+and save it to a location of your choice.
+As an alternative, download the latest [Windows installer file][Home page]
+(even if you are using macOS), open it with your favorite Zip unpacker (do _not_ start the installer),
+find file `PPspliT.ppam` inside the archive and save it to a location of your choice.
+
+
+
+2. Start PowerPoint.
+3. Add the downloaded `PPspliT.ppam` as a PowerPoint add in as described at	 https://support.microsoft.com/en-us/office/add-or-load-a-powerpoint-add-in-3de8bbc2-2481-457a-8841-7334cd5b455f,
+namely:
+
+* In case you are using PowerPoint for Windows:
+
+  4. Click the _File_ tab, then _Options_.
+  5. In the _Options_ dialog box, click _Add-Ins_.
+  6. In the _Manage_ list at the bottom of the dialog box, click _PowerPoint Add-ins_,
+then click _Go_.
+  7. In the _Add-Ins_ dialog box, click _Add New_.
+  8. In the _Add New PowerPoint Add-In_ dialog box, browse for the previously saved
+  `PPspliT.ppam` file and then click _OK_.
+  9. A security notice might appear. In this case, click on _Enable Macros_ and
+  then click _Close_.
+
+* If, instead, you are using PowerPoint for macOS:
+
+  4. Open the _Tools_ menu on the top bar (i.e. not the PowerPoint ribbon toolbar,
+  but rather the macOS menu bar at the top of the screen) and select _PowerPoint add ins_.
+  5. Click on _+_ and select file `PPspliT.ppam` that you saved above.
+
+Note that,even when this issue occurs, the installer should have already
+taken care of copying the required files to a proper location in your system
+(usually `%APPDATA%\Microsoft\AddIns\PPspliT` for Windows systems, and
+`$HOME/Library/Group\ Containers/UBF8T346G9.Office` for macOS systems).
+Therefore the steps for unpacking and saving file `PPspliT.ppam` described above
+can be skipped.
+
+
+---
+
 ## References
 * [Project home page][Home page]
 * At the time of first sketching the add-in code, I used [this blog post by Neil
@@ -306,12 +357,30 @@ of them are acknowledged in the [changelog](CHANGES.txt).
 ----
 
 # Troubleshooting
-* _The add-in is splitting only the first slide instead of the whole slide deck._ \
+
+_The add-in is splitting only the first slide instead of the whole slide deck._
+
 Maybe you have accidentally selected the first slide in the left-side thumbnail
 pane of PowerPoint. Just try clicking anywhere in the main pane of
 PowerPoint (i.e., the slide editor) and try PPspliTting again.
-* _Error "Macro cannot be found or has been disabled because of security" is
-displayed every time I try to split slides._ \
+
+---
+
+_The (Windows) installer fails to recognize any PowerPoint releases (error
+message "the add in has been left unconfigured")._
+
+This may happen, for example, when a pre installed OEM PowerPoint release is
+being used. There is not much that can be done to address this issue, as
+specially packed PowerPoint releases may be harder to detect for the installer
+and the effort to improve its recognition capabilities exceeds the user
+reported impact of this problem. However, you can still work around this little
+problem by performing a [manual installation](#manual-installation).
+
+---
+
+_Error "Macro cannot be found or has been disabled because of security" is
+displayed every time a split is attempted._
+
 As an outdated but, possibly, still valid explanation, a [security update
 released by Microsoft](http://support.microsoft.com/kb/2598041/en-us") around
 April 2012 may cause this issue with most VBA-based applications that make use
