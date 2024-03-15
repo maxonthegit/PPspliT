@@ -317,27 +317,27 @@ namely:
 
 * In case you are using PowerPoint for Windows:
 
-  4. Click the _File_ tab, then _Options_.
-  5. In the _Options_ dialog box, click _Add-Ins_.
-  6. In the _Manage_ list at the bottom of the dialog box, click _PowerPoint Add-ins_,
+4. Click the _File_ tab, then _Options_.
+5. In the _Options_ dialog box, click _Add-Ins_.
+6. In the _Manage_ list at the bottom of the dialog box, click _PowerPoint Add-ins_,
 then click _Go_.
-  7. In the _Add-Ins_ dialog box, click _Add New_.
-  8. In the _Add New PowerPoint Add-In_ dialog box, browse for the previously saved
-  `PPspliT.ppam` file and then click _OK_.
-  9. A security notice might appear. In this case, click on _Enable Macros_ and
-  then click _Close_.
+7. In the _Add-Ins_ dialog box, click _Add New_.
+8. In the _Add New PowerPoint Add-In_ dialog box, browse for the previously saved
+`PPspliT.ppam` file and then click _OK_.
+9. A security notice might appear. In this case, click on _Enable Macros_ and
+then click _Close_.
 
 * If, instead, you are using PowerPoint for macOS:
 
-  4. Open the _Tools_ menu on the top bar (i.e. not the PowerPoint ribbon toolbar,
-  but rather the macOS menu bar at the top of the screen) and select _PowerPoint add ins_.
-  5. Click on _+_ and select file `PPspliT.ppam` that you saved above.
+4. Open the _Tools_ menu on the top bar (i.e. not the PowerPoint ribbon toolbar,
+but rather the macOS menu bar at the top of the screen) and select _PowerPoint add ins_.
+5. Click on _+_ and select file `PPspliT.ppam` that you saved above.
 
 Note that,even when this issue occurs, the installer should have already
 taken care of copying the required files to a proper location in your system
 (usually `%APPDATA%\Microsoft\AddIns\PPspliT` for Windows systems, and
 `$HOME/Library/Group\ Containers/UBF8T346G9.Office` for macOS systems).
-Therefore the steps for unpacking and saving file `PPspliT.ppam` described above
+Therefore, the steps for unpacking and saving file `PPspliT.ppam` described above
 can be skipped.
 
 
