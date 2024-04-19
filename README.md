@@ -117,7 +117,7 @@ preceding exit effect must be appropriately removed.
 As PPspliT is implemented as a VBA macro inside PowerPoint, there is no true
 _build_ procedure. The source code is embedded in PowerPoint binary files that
 are saved as native PowerPoint add-ins: this is also the reason why changes are
-tracked in a separate file ([PPspliT-source.txt](PPspliT-source.txt)). \
+tracked in separate files (e.g., [PPspliT.bas](src/PPT12+/PPspliT.bas)). \
 The only step that requires _building_ is the generation of distributable
 installers.
 
